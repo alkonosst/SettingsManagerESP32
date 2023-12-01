@@ -367,7 +367,7 @@ Settings* settings[] = {&Flags_list,
                         &Strings_list};
 
 // Size: 6
-constexpr size_t settings_size = sizeof(settings) / sizeof(settings_size);
+constexpr size_t settings_size = sizeof(settings) / sizeof(settings[0]);
 ```
 
 #### Formatting all settings
@@ -387,12 +387,11 @@ for (size_t setting = 0; setting < settings_size; setting++) {
   // Iterate all setting members
   for (size_t i = 0; i < settings[setting]->getSize(); i++) {
 
+    // Access to key and text are common to all Types
+    const char* key  = settings[setting]->getKey(i);
+    const char* text = settings[setting]->getText(i);
+
     switch (settings[setting]->getType()) {
-
-      // Access to key and text are common to all Types
-      const char* key  = settings[setting]->getKey(i);
-      const char* text = settings[setting]->getText(i);
-
       case SettingsType::FLAG:
       {
         // Default value
