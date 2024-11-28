@@ -247,10 +247,10 @@ void setup() {
 ## Setting types
 
 ```cpp
-#define FLAGS(X)                  \
-  X(Flag1, "flag 1", false, true) \
-  X(Flag2, "flag 2", true,  true) \
-  X(Flag3, "flag 3", false, true)
+#define BOOLS(X)                     \
+  X(Bool1, "boolean 1", false, true) \
+  X(Bool2, "boolean 2", true,  true) \
+  X(Bool3, "boolean 3", false, true)
 
 #define UINT32S(X)              \
   X(UInt1, "uint32 1", 1, true) \
