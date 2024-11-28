@@ -30,7 +30,7 @@ extern Preferences nvs;
 namespace NVS {
 
 // Type of Setting object. Useful when using pointers.
-enum class Type : uint8_t { Bool, UInt32, Int32, Float, Double, String, StringClass, ByteStream };
+enum class Type : uint8_t { Bool, UInt32, Int32, Float, Double, String, ByteStream };
 
 // Byte Stream struct, useful for binary data (blob)
 struct ByteStream {
@@ -660,3 +660,32 @@ class Settings : public ISettings {
   }
 };
 } // namespace NVS
+
+// Macros to create settings's enum class and object list with a single line
+#define SETTINGS_CREATE_BOOLS(name, settings_macro)                         \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<bool, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_UINT32S(name, settings_macro)                       \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<uint32_t, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_INT32S(name, settings_macro)                        \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<int32_t, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_FLOATS(name, settings_macro)                        \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<float, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_DOUBLES(name, settings_macro)                       \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<double, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_STRINGS(name, settings_macro)                       \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<const char*, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+
+#define SETTINGS_CREATE_BYTE_STREAMS(name, settings_macro)                  \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
+  NVS::Settings<NVS::ByteStream, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
