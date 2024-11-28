@@ -1,5 +1,5 @@
 <h1 align="center">
-  <a><img src=".img/logo.png" alt="Logo" width="200"></a>
+  <a><img src=".img/logo.png" alt="Logo" width="100"></a>
   <br>
   SettingsManagerESP32
 </h1>
@@ -10,34 +10,26 @@
 
 ---
 
-## Table of contents <!-- omit in toc -->
+# Table of contents <!-- omit in toc -->
 
 - [Description](#description)
 - [Usage](#usage)
+  - [Adding library to Arduino IDE](#adding-library-to-arduino-ide)
   - [Adding library to platformio.ini (PlatformIO)](#adding-library-to-platformioini-platformio)
+  - [Using the library](#using-the-library)
+    - [Including the library](#including-the-library)
+    - [What is inside the library](#what-is-inside-the-library)
   - [Constructors and initialization](#constructors-and-initialization)
     - [Step 1: Defining your settings in a macro](#step-1-defining-your-settings-in-a-macro)
-    - [Step 2: Creating `enum class` and `settings list` (automatic)](#step-2-creating-enum-class-and-settings-list-automatic)
-    - [Step 2 alternative: Creating `enum class` and `settings list` (manual)](#step-2-alternative-creating-enum-class-and-settings-list-manual)
+    - [Step 2: Creating `enum class` and `settings list` (manual)](#step-2-creating-enum-class-and-settings-list-manual)
+    - [Step 2 alternative: Creating `enum class` and `settings list` (automatic)](#step-2-alternative-creating-enum-class-and-settings-list-automatic)
     - [Example](#example)
   - [Setting types](#setting-types)
-  - [Methods](#methods)
-    - [`getKey()`](#getkey)
-    - [`getText()`](#gettext)
-    - [`getDefaultValue()`](#getdefaultvalue)
-    - [`setValue()`](#setvalue)
-    - [`getValue()`](#getvalue)
-    - [`getType()`](#gettype)
-    - [`format()`](#format)
-    - [`getSize()`](#getsize)
-  - [Using pointers](#using-pointers)
-    - [Creating pointers to Settings](#creating-pointers-to-settings)
-    - [Formatting all settings](#formatting-all-settings)
-    - [Access all setting values](#access-all-setting-values)
+- [TODO](#todo)
 
 ---
 
-## Description
+# Description
 
 Manage your ESP32 device preferences effortlessly with the **SettingsManagerESP32** library. This
 powerful yet user-friendly library abstracts away the complexities of dealing with ESP32
@@ -47,7 +39,7 @@ your device settings.
 Some of the core features are:
 
 - Single place to manage a list of settings in your code.
-- Capable of having a **Key**, **Description Text** and a **Default Value** for each setting. All
+- Capable of having a **Key**, **Description Text** (_hint_) and a **Default Value** for each setting. All
   these values stored in flash, no use of the heap.
 - No need to use a key string to access a setting (_default case in the Preferences library_).
 - Use of automatically created enum class to index your settings.
@@ -56,45 +48,128 @@ Some of the core features are:
 ![floats](.img/floats.png)
 ![strings](.img/strings.png)
 
-## Usage
+# Usage
 
-### Adding library to platformio.ini (PlatformIO)
+## Adding library to Arduino IDE
+
+Search for the library in the Library Manager.
+
+## Adding library to platformio.ini (PlatformIO)
 
 ```ini
 ; Most recent changes
 lib_deps =
   https://github.com/alkonosst/SettingsManagerESP32.git
 
-; Release vx.y.z (recommended)
+; Release vx.y.z (using an exact version is recommended)
 lib_deps =
-  https://github.com/alkonosst/SettingsManagerESP32.git#v1.0.0
+  https://github.com/alkonosst/SettingsManagerESP32.git#v2.0.0
 ```
 
-### Constructors and initialization
+## Using the library
+
+### Including the library
+
+First, include the library in your file:
+
+```cpp
+#include "SettingsManagerESP32.h"
+```
+
+By default, there are two definitions which controls the maximum size for **strings** and
+**byte-streams**, which are `SETTINGS_STRING_BUFFER_SIZE` and `SETTINGS_BYTE_STREAM_BUFFER_SIZE`
+respectively, **both set to 32 bytes**. If you need to change these values, you can do it in your code
+before including the library:
+
+```cpp
+#define SETTINGS_STRING_BUFFER_SIZE 64
+#define SETTINGS_BYTE_STREAM_BUFFER_SIZE 64
+#include "SettingsManagerESP32.h"
+```
+
+Or if using PlatformIO, you can add these definitions in your `platformio.ini` file:
+
+```ini
+build_flags =
+  -D SETTINGS_STRING_BUFFER_SIZE=64
+  -D SETTINGS_BYTE_STREAM_BUFFER_SIZE=64
+```
+
+### What is inside the library
+
+The library creates a ESP32 `Preferences` object to manage the non-volatile storage named `nvs`. You can use
+this object, if needed, to access de NVS directly:
+
+```cpp
+Preferences nvs;
+```
+
+All the relevant classes and types are inside the `NVS` namespace. The available classes are:
+
+- `Settings<T, ENUM>`: Main class to manage settings. `T` is the type of the setting and `ENUM` is the enum
+  class to index the settings. The available types are: `bool`, `uint32_t`, `int32_t`, `float`,
+  `double`, `const char*` and `ByteStream`.
+- `ISettings`: Interface class to manage settings via pointer. You can use this class to create a
+  pointer to a particular `Settings` object.
+
+And the available types are:
+
+- `ByteStream`: Class to manage byte streams. It is used to store raw binary data in the NVS.
+- `Type`: Enum class to define the type of the setting object, which can be `Bool`, `UInt32`, `Int32`,
+  `Float`, `Double`, `String` or `ByteStream`.
+
+## Constructors and initialization
 
 This library makes use of [X-Macros](https://en.wikipedia.org/wiki/X_macro) to make the code
 maintainable and escalable. You can easily add, edit or remove a setting in the same place.
 
-#### Step 1: Defining your settings in a macro
+### Step 1: Defining your settings in a macro
 
 In order to create a new group of settings, you need to define a macro with the following structure:
 
 ```cpp
 #define FLOATS(X) \
-  X(SEN_THR, "Sensor Voltage Threshold", 3.14) \
-  X(ADC_SLOPE, "ADC Slope Factor", 1.2345)     \
+  X(SenThr,   "Sensor Voltage Threshold", 3.14,   false) \
+  X(AdcSlope, "ADC Slope Factor",         1.2345, true)  \
+  X(Another,  "Another setting",          0.0,    false)
 ```
 
-|      | First                                                                                          | Second                                  | Third                                                         |     |
-| ---- | ---------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------- | --- |
-| `X(` | Enum class member, also used as a key (**no more than 15 characters** and **no whitespaces**). | Text to describe what the setting does. | Default value. In the example above, a value of type `float`. | `)` |
+Structure of the macro:
+
+|      | First (key)                                                                                    | Second (hint)                           | Third (default value)                                         | Fourth (formatteable)       |     |
+| ---- | ---------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------- | --------------------------- | --- |
+| `X(` | Enum class member, also used as a key (**no more than 15 characters** and **no whitespaces**). | Text to describe what the setting does. | Default value. In the example above, a value of type `float`. | Setting formatteable or not | `)` |
 
 Each new row is a new setting. All settings in the same macro must be of the same
 type. In the example above all settings are `float`.
 
-#### Step 2: Creating `enum class` and `settings list` (automatic)
+### Step 2: Creating `enum class` and `settings list` (manual)
 
-After your macro with settings is defined, you must use the corresponding `SETTINGS_CREATE_XXX`
+Once you have defined your settings, you need to create an `enum class` and a `settings list` object. You must use the
+macros `SETTINGS_EXPAND_ENUM_CLASS` and `SETTINGS_EXPAND_SETTINGS` as argument to your X-Macro
+defined previously, as shown below:
+
+```cpp
+enum class MyFloats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
+NVS::Settings<float, MyFloats> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+```
+
+This automatically will expand to this:
+
+```cpp
+enum class MyFloats : uint8_t { SenThr, AdcSlope, Another };
+NVS::Settings<float, MyFloats> my_float = {
+  {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
+  {"AdcSlope", "ADC Slope Factor",         1.2345, true},
+  {"Another",  "Another setting",          0.0   , true}
+};
+```
+
+Now you can use the `my_floats` object and the `MyFloats` enum class.
+
+### Step 2 alternative: Creating `enum class` and `settings list` (automatic)
+
+After your macro with settings is defined, you can use the corresponding `SETTINGS_CREATE_XXX`
 macro (_refer to [Setting types](#setting-types) to see all macros_).
 This will create a automatically a `enum class` and a `setting` object to use later.
 
@@ -104,75 +179,56 @@ SETTINGS_CREATE_FLOATS(Floats, FLOATS)
 
 |                           | First                                                             | Second                                    |     |
 | ------------------------- | ----------------------------------------------------------------- | ----------------------------------------- | --- |
-| `SETTINGS_CREATE_FLOATS(` | A name to give to the `enum class` and prefix to `settings list`. | X-Macro with settings defined previously. | `)` |
+| `SETTINGS_CREATE_FLOATS(` | A name to give to the `enum class` and suffix to `settings list`. | X-Macro with settings defined previously. | `)` |
 
-The example above with expand to this:
+The compiler will expand the macro to this:
 
 ```cpp
 enum class Floats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-SettingsFloat<Floats> Floats##_list = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+NVS::Settings<float, Floats> st_Floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
 ```
 
-And finally will expand to this:
+And finally it will expand to this:
 
 ```cpp
-enum class Floats : uint8_t { SEN_THR, ADC_SLOPE };
-SettingsFloat<Floats> Floats_list = {
-  {"SEN_THR",   "Sensor Voltage Threshold", 3.14  },
-  {"ADC_SLOPE", "ADC Slope Factor",         1.2345}
+enum class Floats : uint8_t { SenThr, AdcSlope, Another };
+NVS::Settings<float, MyFloats> st_Floats = {
+  {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
+  {"AdcSlope", "ADC Slope Factor",         1.2345, true},
+  {"Another",  "Another setting",          0.0   , true}
 };
 ```
 
-Now you can use the `Floats_list` object and the `Floats` enum class.
+Now you can use the `st_Floats` object and the `Floats` enum class.
 
-#### Step 2 alternative: Creating `enum class` and `settings list` (manual)
-
-Alternatively, you can set the `enum class` and `settings list` names separately. You must use the
-macros `SETTINGS_EXPAND_ENUM_CLASS` and `SETTINGS_EXPAND_SETTINGS` as argument to your X-Macro
-defined previously, as shown below:
+### Example
 
 ```cpp
-enum class MyFloatList : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-SettingsFloat<MyFloatList> my_float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
-```
-
-This will expand to this:
-
-```cpp
-enum class MyFloats : uint8_t { SEN_THR, ADC_SLOPE };
-SettingsFloat<MyFloats> my_float_settings = {
-  {"SEN_THR",   "Sensor Voltage Threshold", 3.14  },
-  {"ADC_SLOPE", "ADC Slope Factor",         1.2345}
-};
-```
-
-Now you can use the `my_float_settings` object and the `MyFloats` enum class.
-
-#### Example
-
-```cpp
+// Change the buffer size
+#define SETTINGS_STRING_BUFFER_SIZE 64
+#define SETTINGS_BYTE_STREAM_BUFFER_SIZE 64
 #include "SettingsManagerESP32.h" // Include library
 
 // Step 1: Define the X-Macro.
 // - The macro's name can be whatever you prefer. In this case "UINT32S", because we will store a
 // group of settings of type uint32_t.
-#define UINT32S(X)           \
-  X(UINT32_1, "uint32 1", 1) \
-  X(UINT32_2, "uint32 2", 2) \
-  X(UINT32_3, "uint32 3", 3)
+#define UINT32S(X)              \
+  X(UInt1, "uint32 1", 1, true) \
+  X(UInt2, "uint32 2", 2, true) \
+  X(UInt3, "uint32 3", 3, true)
 
 // The argument "X" can be named as you wish, but remember to use it in every row for each new setting.
-#define FLOATS(setting)            \
-  setting(FLOAT_1, "float 1", 1.1) \
-  setting(FLOAT_2, "float 2", 2.2) \
-  setting(FLOAT_3, "float 3", 3.3)
+#define FLOATS(setting)                 \
+  setting(Float1, "float 1", 1.1, true) \
+  setting(Float2, "float 2", 2.2, true) \
+  setting(Float3, "float 3", 3.3, true)
 
-// Step 2: Creating enum class and settings list automatically
-SETTINGS_CREATE_UINT32S(UInt32s, UINT32S)
-
-// Step 2 alternative: Creating enum class and settings list manually
+// Step 2: Creating enum class and settings list manually
 enum class Floats { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-SettingsFloat<Floats> float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+Settings<float, Floats> float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+
+// Step 2 alternative: Creating enum class and settings list automatically
+SETTINGS_CREATE_UINT32S(UInt32s, UINT32S)
 
 void setup() {
   // Initialize NVS with namespace "esp32"
@@ -180,278 +236,67 @@ void setup() {
 
   /* Now you could access to the settings methods */
 
-  // You should obtain "UINT32_1"
-  const char* uint32_1_key = UInt32s_list.getKey(UInt32s::UINT32_1);
+  // You should obtain "UInt1"
+  const char* uint32_1_key = UInt32s_list.getKey(UInt32s::UInt1);
 
-  // You should obtain "FLOAT_1"
-  const char* float_1_key  = float_settings.getKey(Floats::FLOAT_1);
+  // You should obtain "Float1"
+  const char* float_1_key  = float_settings.getKey(Floats::Float1);
 }
 ```
 
-### Setting types
+## Setting types
 
 ```cpp
-#define FLAGS(X)             \
-  X(FLAG_1, "flag 1", false) \
-  X(FLAG_2, "flag 2", true)  \
-  X(FLAG_3, "flag 3", false)
+#define FLAGS(X)                  \
+  X(Flag1, "flag 1", false, true) \
+  X(Flag2, "flag 2", true,  true) \
+  X(Flag3, "flag 3", false, true)
 
-#define UINT32S(X)           \
-  X(UINT32_1, "uint32 1", 1) \
-  X(UINT32_2, "uint32 2", 2) \
-  X(UINT32_3, "uint32 3", 3)
+#define UINT32S(X)              \
+  X(UInt1, "uint32 1", 1, true) \
+  X(UInt2, "uint32 2", 2, true) \
+  X(UInt3, "uint32 3", 3, true)
 
-#define INT32S(X)           \
-  X(INT32_1, "int32 1", -1) \
-  X(INT32_2, "int32 2", -2) \
-  X(INT32_3, "int32 3", -3)
+#define INT32S(X)              \
+  X(Int1, "int32 1", -1, true) \
+  X(Int2, "int32 2", -2, true) \
+  X(Int3, "int32 3", -3, true)
 
-#define FLOATS(X)            \
-  X(FLOAT_1, "float 1", 1.1) \
-  X(FLOAT_2, "float 2", 1.2) \
-  X(FLOAT_3, "float 3", 1.3)
+#define FLOATS(X)                 \
+  X(Float1, "float 1", 1.1, true) \
+  X(Float2, "float 2", 1.2, true) \
+  X(Float3, "float 3", 1.3, true)
 
-#define DOUBLES(X)                  \
-  X(DOUBLE_1, "double 1", 1.123456) \
-  X(DOUBLE_2, "double 2", 2.123456) \
-  X(DOUBLE_3, "double 3", 3.123456)
+#define DOUBLES(X)                       \
+  X(Double1, "double 1", 1.123456, true) \
+  X(Double2, "double 2", 2.123456, true) \
+  X(Double3, "double 3", 3.123456, true)
 
-#define STRINGS(X)                 \
-  X(STRING_1, "string 1", "str 1") \
-  X(STRING_2, "string 2", "str 2") \
-  X(STRING_3, "string 3", "str 3")
+#define STRINGS(X)                      \
+  X(String1, "string 1", "str 1", true) \
+  X(String2, "string 2", "str 2", true) \
+  X(String3, "string 3", "str 3", true)
+
+// ByteStream is a special type. It is used to store raw binary data in the NVS.
+const uint8_t byte_default_value[] = {'n', 'v', 's'};
+const NVS::ByteStream byte_stream_default = {byte_default_value, 3}; // Must be const!
+
+#define BYTE_STREAMS(X)                                      \
+  X(ByteStream1, "byte stream 1", byte_stream_default, true) \
+  X(ByteStream2, "byte stream 2", byte_stream_default, true) \
+  X(ByteStream3, "byte stream 3", byte_stream_default, true)
 
 // Automatic creation
-SETTINGS_CREATE_FLAGS(Flags, FLAGS)       // Boolean
+SETTINGS_CREATE_BOOLS(Bools, BOOLS)       // Boolean
 SETTINGS_CREATE_UINT32S(UInt32s, UINT32S) // Unsigned 32 bit integer
 SETTINGS_CREATE_INT32S(Int32s, INT32S)    // Signed 32 bit integer
 SETTINGS_CREATE_FLOATS(Floats, FLOATS)    // Floating-point
 SETTINGS_CREATE_DOUBLES(Doubles, DOUBLES) // Double precision floating-point
 SETTINGS_CREATE_STRINGS(Strings, STRINGS) // String, array of characters
+SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
 ```
 
-### Methods
+# TODO
 
-#### `getKey()`
-
-```cpp
-// Using enum class
-const char* flag_1_key   = Flags_list.getKey(Flags::FLAG_1);       // "FLAG_1"
-const char* uint32_1_key = UInt32s_list.getKey(UInt32s::UINT32_1); // "UINT32_1"
-const char* int32_1_key  = Int32s_list.getKey(Int32s::INT32_1);    // "INT32_1"
-const char* float_1_key  = Floats_list.getKey(Floats::FLOAT_1);    // "FLOAT_1"
-const char* double_1_key = Doubles_list.getKey(Doubles::DOUBLE_1); // "DOUBLE_1"
-const char* string_1_key = Strings_list.getKey(Strings::STRING_1); // "STRING_1"
-
-// Using index. If index >= list size, it will return nullptr
-const char* flag_1_key   = Flags_list.getKey(0);   // "FLAG_1"
-const char* uint32_1_key = UInt32s_list.getKey(0); // "UINT32_1"
-const char* int32_1_key  = Int32s_list.getKey(0);  // "INT32_1"
-const char* float_1_key  = Floats_list.getKey(0);  // "FLOAT_1"
-const char* double_1_key = Doubles_list.getKey(0); // "DOUBLE_1"
-const char* string_1_key = Strings_list.getKey(0); // "STRING_1"
-```
-
-#### `getText()`
-
-```cpp
-// Using enum class
-const char* flag_1_text   = Flags_list.getText(Flags::FLAG_1);       // "flag 1"
-const char* uint32_1_text = UInt32s_list.getText(UInt32s::UINT32_1); // "uint32 1"
-const char* int32_1_text  = Int32s_list.getText(Int32s::INT32_1);    // "int32 1"
-const char* float_1_text  = Floats_list.getText(Floats::FLOAT_1);    // "float 1"
-const char* double_1_text = Doubles_list.getText(Doubles::DOUBLE_1); // "double 1"
-const char* string_1_text = Strings_list.getText(Strings::STRING_1); // "string 1"
-
-// Using index. If index >= list size, it will return nullptr
-const char* flag_1_text   = Flags_list.getText(0);   // "flag 1"
-const char* uint32_1_text = UInt32s_list.getText(0); // "uint32 1"
-const char* int32_1_text  = Int32s_list.getText(0);  // "int32 1"
-const char* float_1_text  = Floats_list.getText(0);  // "float 1"
-const char* double_1_text = Doubles_list.getText(0); // "double 1"
-const char* string_1_text = Strings_list.getText(0); // "string 1"
-```
-
-#### `getDefaultValue()`
-
-```cpp
-// Using enum class
-bool flag_1_default_value          = Flags_list.getDefaultValue(Flags::FLAG_1);       // false
-uint32_t uint32_1_default_value    = UInt32s_list.getDefaultValue(UInt32s::UINT32_1); // 1
-int32_t int32_1_default_value      = Int32s_list.getDefaultValue(Int32s::INT32_1);    // -1
-float float_1_default_value        = Floats_list.getDefaultValue(Floats::FLOAT_1);    // 1.1
-double double_1_default_value      = Doubles_list.getDefaultValue(Doubles::DOUBLE_1); // 1.123456
-const char* string_1_default_value = Strings_list.getDefaultValue(Strings::STRING_1); // "str 1"
-
-// Using index. If index >= list size, it will return nullptr
-bool flag_1_text          = Flags_list.getDefaultValue(0);   // false
-uint32_t uint32_1_text    = UInt32s_list.getDefaultValue(0); // 1
-int32_t int32_1_text      = Int32s_list.getDefaultValue(0);  // -1
-float float_1_text        = Floats_list.getDefaultValue(0);  // 1.1
-double double_1_text      = Doubles_list.getDefaultValue(0); // 1.123456
-const char* string_1_text = Strings_list.getDefaultValue(0); // "str 1"
-```
-
-#### `setValue()`
-
-```cpp
-bool flag_1_saved   = Flags_list.setValue(Flags::FLAG_1, true);
-bool uint32_1_saved = UInt32s_list.setValue(UInt32s::UINT32_1, 100);
-bool int32_1_saved  = Int32s_list.setValue(Int32s::INT32_1, -100);
-bool float_1_saved  = Floats_list.setValue(Floats::FLOAT_1, 3.14);
-bool double_1_saved = Doubles_list.setValue(Doubles::DOUBLE_1, 123.456);
-bool string_1_saved = Strings_list.setValue(Strings::STRING_1, "hello world");
-```
-
-#### `getValue()`
-
-```cpp
-bool flag_1_value       = Flags_list.getValue(Flags::FLAG_1);       // true
-uint32_t uint32_1_value = UInt32s_list.getValue(UInt32s::UINT32_1); // 100
-int32_t int32_1_value   = Int32s_list.getValue(Int32s::INT32_1);    // -100
-float float_1_value     = Floats_list.getValue(Floats::FLOAT_1);    // 3.14
-double double_1_value   = Doubles_list.getValue(Doubles::DOUBLE_1); // 123.456
-String string_1_value   = Strings_list.getValue(Strings::STRING_1); // "hello world"
-```
-
-#### `getType()`
-
-```cpp
-SettingsType flag_type   = Flags_list.getType();   // SettingsType::FLAG
-SettingsType uint32_type = UInt32s_list.getType(); // SettingsType::UINT32
-SettingsType int32_type  = Int32s_list.getType();  // SettingsType::INT32
-SettingsType float_type  = Floats_list.getType();  // SettingsType::FLOAT
-SettingsType double_type = Doubles_list.getType(); // SettingsType::DOUBLE
-SettingsType string_type = Strings_list.getType(); // SettingsType::STRING
-```
-
-#### `format()`
-
-```cpp
-size_t flag_format_errors   = Flags_list.format();
-size_t uint32_format_errors = UInt32s_list.format();
-size_t int32_format_errors  = Int32s_list.format();
-size_t float_format_errors  = Floats_list.format();
-size_t double_format_errors = Doubles_list.format();
-size_t string_format_errors = Strings_list.format();
-```
-
-#### `getSize()`
-
-```cpp
-size_t flag_size   = Flags_list.getSize();   // 3
-size_t uint32_size = UInt32s_list.getSize(); // 3
-size_t int32_size  = Int32s_list.getSize();  // 3
-size_t float_size  = Floats_list.getSize();  // 3
-size_t double_size = Doubles_list.getSize(); // 3
-size_t string_size = Strings_list.getSize(); // 3
-```
-
-### Using pointers
-
-If you need to group different settings to iterate them easily, you can use the `Settings` interface
-class to create a pointer to a particular Setting object.
-
-#### Creating pointers to Settings
-
-```cpp
-// Single pointer to Flags
-Settings* ptr_flags = &Flags_list;
-
-// Array of pointers to all settings, with the memory address of each unique Setting List
-Settings* settings[] = {&Flags_list,
-                        &UInt32s_list,
-                        &Int32s_list,
-                        &Floats_list,
-                        &Doubles_list,
-                        &Strings_list};
-
-// Size: 6
-constexpr size_t settings_size = sizeof(settings) / sizeof(settings[0]);
-```
-
-#### Formatting all settings
-
-```cpp
-for (size_t i = 0; i < settings_size; i++) {
-  settings[i]->format();
-}
-```
-
-#### Access all setting values
-
-```cpp
-// Iterate all setting pointers
-for (size_t setting = 0; setting < settings_size; setting++) {
-
-  // Iterate all setting members
-  for (size_t i = 0; i < settings[setting]->getSize(); i++) {
-
-    // Access to key and text are common to all Types
-    const char* key  = settings[setting]->getKey(i);
-    const char* text = settings[setting]->getText(i);
-
-    switch (settings[setting]->getType()) {
-      case SettingsType::FLAG:
-      {
-        // Default value
-        bool default_value = settings[setting]->getDefaultValueAs<bool>(i);
-
-        // Current value
-        bool value;
-        settings[setting]->getValuePtr(i, &value);
-      } break;
-
-      case SettingsType::UINT32:
-      {
-        // Default value
-        uint32_t default_value = settings[setting]->getDefaultValueAs<uint32_t>(i);
-
-        // Current value
-        uint32_t value;
-        settings[setting]->getValuePtr(i, &value);
-      } break;
-
-      case SettingsType::INT32:
-      {
-        // Default value
-        int32_t default_value = settings[setting]->getDefaultValueAs<int32_t>(i);
-
-        // Current value
-        int32_t value;
-        settings[setting]->getValuePtr(i, &value);
-      } break;
-
-      case SettingsType::FLOAT:
-      {
-        // Default value
-        float default_value = settings[setting]->getDefaultValueAs<float>(i);
-
-        // Current value
-        float value;
-        settings[setting]->getValuePtr(i, &value);
-      } break;
-
-      case SettingsType::DOUBLE:
-      {
-        // Default value
-        double default_value = settings[setting]->getDefaultValueAs<double>(i);
-
-        // Current value
-        double value;
-        settings[setting]->getValuePtr(i, &value);
-      } break;
-
-      case SettingsType::STRING:
-      {
-        // Default value
-        const char* default_value = settings[setting]->getDefaultValueAs<const char*>(i);
-
-        // Current value
-        char value[64]; // Adjust the size based on the longest string and give it extra room
-        settings[setting]->getValuePtr(i, value);
-      } break;
-    }
-  }
-}
-```
+- Illustrate how to use the all the methods available in the library.
+- Add more examples.
