@@ -118,7 +118,7 @@ class StringPolicy : public Policy<const char*> {
 
   const char* getValue(const char* key, const char* default_value) {
     size_t len = nvs.getString(key, _buffer, sizeof(_buffer));
-    return (len > 0 ? _buffer : nullptr);
+    return (len > 0 ? _buffer : default_value);
   }
 
   private:
@@ -134,7 +134,7 @@ class ByteStreamPolicy : public Policy<ByteStream> {
 
   ByteStream getValue(const char* key, ByteStream default_value) {
     size_t len = nvs.getBytes(key, _buffer, sizeof(_buffer));
-    return {len > 0 ? _buffer : nullptr, len};
+    return (len > 0 ? ByteStream{_buffer, len} : default_value);
   }
 
   private:

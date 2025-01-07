@@ -1,5 +1,5 @@
 /**
- * SPDX-FileCopyrightText: 2024 Maximiliano Ramirez <maximiliano.ramirezbravo@gmail.com>
+ * SPDX-FileCopyrightText: 2025 Maximiliano Ramirez <maximiliano.ramirezbravo@gmail.com>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
@@ -9,54 +9,68 @@
 #define UNITY_INCLUDE_DOUBLE
 #include <unity.h>
 
-#include "SettingsManagerNew.h"
+#include "../../../src/SettingsManagerESP32.h"
+#include <Preferences.h>
+
+Preferences nvs;
 
 /* ---------------------------------------------------------------------------------------------- */
-// - 2 settings for each type
+// - 3 settings for each type. The test will write to NVS only 2 of them, the third will be
+//   undefined (not written to NVS), to test the behavior of the library when trying to read a
+//   non-existent key (should return the default value).
 // - Made all not-formatteable to test two different outcomes (force format and normal format)
 
 // key, hint, default value, formatteable
 #define BOOLS(X)                       \
   X(Bool_1, "My Bool 1", false, false) \
-  X(Bool_2, "My Bool 2", true, false)
+  X(Bool_2, "My Bool 2", true, false)  \
+  X(Bool_3, "My Bool 3", false, false)
 
 #define UINT32S(X)                     \
   X(UInt32_1, "My UInt32 1", 1, false) \
-  X(UInt32_2, "My UInt32 2", 2, false)
+  X(UInt32_2, "My UInt32 2", 2, false) \
+  X(UInt32_3, "My UInt32 3", 3, false)
 
 #define INT32S(X)                     \
   X(Int32_1, "My Int32 1", -1, false) \
-  X(Int32_2, "My Int32 2", -2, false)
+  X(Int32_2, "My Int32 2", -2, false) \
+  X(Int32_3, "My Int32 3", -3, false)
 
 #define FLOATS(X)                      \
   X(Float_1, "My Float 1", 1.1, false) \
-  X(Float_2, "My Float 2", 2.2, false)
+  X(Float_2, "My Float 2", 2.2, false) \
+  X(Float_3, "My Float 3", 3.3, false)
 
 #define DOUBLES(X)                               \
   X(Double_1, "My Double 1", 1.123456789, false) \
-  X(Double_2, "My Double 2", 2.123456789, false)
+  X(Double_2, "My Double 2", 2.123456789, false) \
+  X(Double_3, "My Double 3", 3.123456789, false)
 
 #define STRINGS(X)                           \
   X(String_1, "My String 1", "str 1", false) \
-  X(String_2, "My String 2", "str 2", false)
+  X(String_2, "My String 2", "str 2", false) \
+  X(String_3, "My String 3", "str 3", false)
 
 const NVS::ByteStream bytestream1_default = {reinterpret_cast<const uint8_t*>("nvs1"), 4};
 const NVS::ByteStream bytestream2_default = {reinterpret_cast<const uint8_t*>("nvs2"), 4};
+const NVS::ByteStream bytestream3_default = {reinterpret_cast<const uint8_t*>("nvs3"), 4};
 
 #define BYTESTREAMS(X)                                       \
   X(Stream_1, "My ByteStream 1", bytestream1_default, false) \
-  X(Stream_2, "My ByteStream 2", bytestream2_default, false)
+  X(Stream_2, "My ByteStream 2", bytestream2_default, false) \
+  X(Stream_3, "My ByteStream 3", bytestream3_default, false)
 
-constexpr uint8_t VALUES = 2;
+constexpr uint8_t TOTAL_VALUES = 3;
+constexpr uint8_t NVS_VALUES   = 2;
 
 // New values
-bool new_bool[VALUES]                  = {true, false};
-uint32_t new_uint32[VALUES]            = {11, 12};
-int32_t new_int32[VALUES]              = {-11, -12};
-float new_float[VALUES]                = {10.1, 10.2};
-double new_double[VALUES]              = {11.123456789, 22.123456789};
-const char* new_string[VALUES]         = {"hello 1", "hello 2"};
-NVS::ByteStream new_bytestream[VALUES] = {
+bool new_bool[NVS_VALUES]                  = {true, false};
+uint32_t new_uint32[NVS_VALUES]            = {11, 12};
+int32_t new_int32[NVS_VALUES]              = {-11, -12};
+float new_float[NVS_VALUES]                = {10.1, 10.2};
+double new_double[NVS_VALUES]              = {11.123456789, 22.123456789};
+const char* new_string[NVS_VALUES]         = {"hello 1", "hello 2"};
+NVS::ByteStream new_bytestream[NVS_VALUES] = {
   {reinterpret_cast<const uint8_t*>("test1"), 5},
   {reinterpret_cast<const uint8_t*>("test2"), 5}
 };
@@ -98,11 +112,12 @@ enum SettingIndex {
 };
 
 // Callbacks
-// Two entries for each setting (in setValue and on format)
-constexpr uint8_t expected_global_callback_entries = settings_size * VALUES * 2;
+// 3 entries for each setting (when formatting the list)
+// 2 entries for each setting (when setting a value)
+constexpr uint8_t expected_global_callback_entries = settings_size * (TOTAL_VALUES + NVS_VALUES);
 
 // One entry for each setting (only in setValue; callback disabled on format)
-constexpr uint8_t expected_individual_callback_entries = VALUES;
+constexpr uint8_t expected_individual_callback_entries = NVS_VALUES;
 
 uint8_t global_callback_entries = 0;
 void globalCallback(const char* key, const NVS::Type type, const size_t index,
@@ -147,6 +162,7 @@ void bytestreamCallback(const char* key, const ByteStreams setting, const NVS::B
 
 // Test functions
 void test_initializeNVS();
+void test_clearNVS();
 void test_getType();
 void test_getSize();
 
@@ -232,7 +248,7 @@ void setup() {
     settings[i]->setGlobalOnChangeCallback(globalCallback, true);
   }
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     bools.setOnChangeCallback(static_cast<Bools>(i), boolCallback, false);
     uint32s.setOnChangeCallback(static_cast<UInt32s>(i), uint32Callback, false);
     int32s.setOnChangeCallback(static_cast<Int32s>(i), int32Callback, false);
@@ -245,6 +261,7 @@ void setup() {
   UNITY_BEGIN();
 
   RUN_TEST(test_initializeNVS);
+  RUN_TEST(test_clearNVS);
   RUN_TEST(test_getType);
   RUN_TEST(test_getSize);
 
@@ -329,6 +346,8 @@ void loop() {}
 /* ---------------------------------------------------------------------------------------------- */
 void test_initializeNVS() { TEST_ASSERT(nvs.begin("esp32")); }
 
+void test_clearNVS() { TEST_ASSERT(nvs.clear()); }
+
 void test_getType() {
   TEST_ASSERT(bools.getType() == NVS::Type::Bool);
   TEST_ASSERT(uint32s.getType() == NVS::Type::UInt32);
@@ -340,13 +359,14 @@ void test_getType() {
 }
 
 void test_getSize() {
-  TEST_ASSERT(bools.getSize() == VALUES);
-  TEST_ASSERT(uint32s.getSize() == VALUES);
-  TEST_ASSERT(int32s.getSize() == VALUES);
-  TEST_ASSERT(floats.getSize() == VALUES);
-  TEST_ASSERT(doubles.getSize() == VALUES);
-  TEST_ASSERT(strings.getSize() == VALUES);
-  TEST_ASSERT(bytestreams.getSize() == VALUES);
+  constexpr size_t TOTAL_VALUES = NVS_VALUES + 1;
+  TEST_ASSERT(bools.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(uint32s.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(int32s.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(floats.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(doubles.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(strings.getSize() == TOTAL_VALUES);
+  TEST_ASSERT(bytestreams.getSize() == TOTAL_VALUES);
 }
 /* ---------------------------------------------------------------------------------------------- */
 
@@ -379,7 +399,7 @@ void test_bools_getValue() {
 void test_bools_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(bools.hasKey(bools.getKey(static_cast<Bools>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -390,7 +410,7 @@ void test_bools_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_Bools]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "Bool_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_Bools]->getKey(i));
@@ -418,12 +438,20 @@ void test_bools_pointer() {
 
   bool value;
   TEST_ASSERT_FALSE(settings[ID_Bools]->getValuePtr(idx_out, &value, sizeof(bool)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_Bools]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_Bools]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL(bools.getDefaultValue(static_cast<Bools>(idx_nullptr)), value);
 }
 
 void test_bools_format() {
   TEST_ASSERT_EQUAL(0, bools.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL(new_bool[i], bools.getValue(static_cast<Bools>(i)));
   }
 }
@@ -431,7 +459,7 @@ void test_bools_format() {
 void test_bools_forceFormat() {
   TEST_ASSERT_EQUAL(0, bools.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL(bools.getDefaultValue(static_cast<Bools>(i)),
                       bools.getValue(static_cast<Bools>(i)));
   }
@@ -467,7 +495,7 @@ void test_uint32s_getValue() {
 void test_uint32s_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(uint32s.hasKey(uint32s.getKey(static_cast<UInt32s>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -478,7 +506,7 @@ void test_uint32s_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_UInt32s]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "UInt32_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_UInt32s]->getKey(i));
@@ -506,12 +534,20 @@ void test_uint32s_pointer() {
 
   uint32_t value;
   TEST_ASSERT_FALSE(settings[ID_UInt32s]->getValuePtr(idx_out, &value, sizeof(value)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_UInt32s]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_UInt32s]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(static_cast<UInt32s>(idx_nullptr)), value);
 }
 
 void test_uint32s_format() {
   TEST_ASSERT_EQUAL(0, uint32s.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_UINT32(new_uint32[i], uint32s.getValue(static_cast<UInt32s>(i)));
   }
 }
@@ -519,7 +555,7 @@ void test_uint32s_format() {
 void test_uint32s_forceFormat() {
   TEST_ASSERT_EQUAL(0, uint32s.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(static_cast<UInt32s>(i)),
                              uint32s.getValue(static_cast<UInt32s>(i)));
   }
@@ -555,7 +591,7 @@ void test_int32s_getValue() {
 void test_int32s_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(int32s.hasKey(int32s.getKey(static_cast<Int32s>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -566,7 +602,7 @@ void test_int32s_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_Int32s]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "Int32_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_Int32s]->getKey(i));
@@ -594,12 +630,20 @@ void test_int32s_pointer() {
 
   int32_t value;
   TEST_ASSERT_FALSE(settings[ID_Int32s]->getValuePtr(idx_out, &value, sizeof(value)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_Int32s]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_Int32s]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(static_cast<Int32s>(idx_nullptr)), value);
 }
 
 void test_int32s_format() {
   TEST_ASSERT_EQUAL(0, int32s.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_INT32(new_int32[i], int32s.getValue(static_cast<Int32s>(i)));
   }
 }
@@ -607,7 +651,7 @@ void test_int32s_format() {
 void test_int32s_forceFormat() {
   TEST_ASSERT_EQUAL(0, int32s.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(static_cast<Int32s>(i)),
                             int32s.getValue(static_cast<Int32s>(i)));
   }
@@ -643,7 +687,7 @@ void test_floats_getValue() {
 void test_floats_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(floats.hasKey(floats.getKey(static_cast<Floats>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -654,7 +698,7 @@ void test_floats_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_Floats]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "Float_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_Floats]->getKey(i));
@@ -678,16 +722,24 @@ void test_floats_pointer() {
 
   TEST_ASSERT_NULL(settings[ID_Floats]->getKey(idx_out));
   TEST_ASSERT_NULL(settings[ID_Floats]->getHint(idx_out));
-  TEST_ASSERT_EQUAL(0, settings[ID_Floats]->getDefaultValueAs<float>(idx_out));
+  TEST_ASSERT_EQUAL_FLOAT(0, settings[ID_Floats]->getDefaultValueAs<float>(idx_out));
 
   float value;
   TEST_ASSERT_FALSE(settings[ID_Floats]->getValuePtr(idx_out, &value, sizeof(value)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_Floats]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_Floats]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(static_cast<Floats>(idx_nullptr)), value);
 }
 
 void test_floats_format() {
   TEST_ASSERT_EQUAL(0, floats.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_FLOAT(new_float[i], floats.getValue(static_cast<Floats>(i)));
   }
 }
@@ -695,7 +747,7 @@ void test_floats_format() {
 void test_floats_forceFormat() {
   TEST_ASSERT_EQUAL(0, floats.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(static_cast<Floats>(i)),
                             floats.getValue(static_cast<Floats>(i)));
   }
@@ -731,7 +783,7 @@ void test_doubles_getValue() {
 void test_doubles_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(doubles.hasKey(doubles.getKey(static_cast<Doubles>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -742,7 +794,7 @@ void test_doubles_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_Doubles]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "Double_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_Doubles]->getKey(i));
@@ -770,12 +822,20 @@ void test_doubles_pointer() {
 
   double value;
   TEST_ASSERT_FALSE(settings[ID_Doubles]->getValuePtr(idx_out, &value, sizeof(value)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_Doubles]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_Doubles]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(static_cast<Doubles>(idx_nullptr)), value);
 }
 
 void test_doubles_format() {
   TEST_ASSERT_EQUAL(0, doubles.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_DOUBLE(new_double[i], doubles.getValue(static_cast<Doubles>(i)));
   }
 }
@@ -783,7 +843,7 @@ void test_doubles_format() {
 void test_doubles_forceFormat() {
   TEST_ASSERT_EQUAL(0, doubles.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(static_cast<Doubles>(i)),
                              doubles.getValue(static_cast<Doubles>(i)));
   }
@@ -819,7 +879,7 @@ void test_strings_getValue() {
 void test_strings_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(strings.hasKey(strings.getKey(static_cast<Strings>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -830,7 +890,7 @@ void test_strings_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_Strings]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "String_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_Strings]->getKey(i));
@@ -856,12 +916,20 @@ void test_strings_pointer() {
   TEST_ASSERT_NULL(settings[ID_Strings]->getDefaultValueAs<const char*>(idx_out));
 
   TEST_ASSERT_FALSE(settings[ID_Strings]->getValuePtr(idx_out, buffer, sizeof(buffer)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_Strings]->getValuePtr(0, buffer, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_Strings]->getValuePtr(idx_nullptr, buffer, sizeof(buffer)));
+  TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(static_cast<Strings>(idx_nullptr)), buffer);
 }
 
 void test_strings_format() {
   TEST_ASSERT_EQUAL(0, strings.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_STRING(new_string[i], strings.getValue(static_cast<Strings>(i)));
   }
 }
@@ -869,7 +937,7 @@ void test_strings_format() {
 void test_strings_forceFormat() {
   TEST_ASSERT_EQUAL(0, strings.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(static_cast<Strings>(i)),
                              strings.getValue(static_cast<Strings>(i)));
   }
@@ -919,7 +987,7 @@ void test_bytestreams_getValue() {
 void test_bytestreams_hasKey() {
   size_t index_found;
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT(bytestreams.hasKey(bytestreams.getKey(static_cast<ByteStreams>(i)), index_found));
     TEST_ASSERT_EQUAL(i, index_found);
   }
@@ -930,7 +998,7 @@ void test_bytestreams_pointer() {
 
   char buffer[64];
 
-  for (size_t i = 0; i < settings[ID_ByteStreams]->getSize(); i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     // Key
     sprintf(buffer, "Stream_%u", i + 1);
     TEST_ASSERT_EQUAL_STRING(buffer, settings[ID_ByteStreams]->getKey(i));
@@ -968,12 +1036,25 @@ void test_bytestreams_pointer() {
 
   NVS::ByteStream value;
   TEST_ASSERT_FALSE(settings[ID_ByteStreams]->getValuePtr(idx_out, &value, sizeof(value)));
+
+  // Buffer too small
+  TEST_ASSERT_FALSE(settings[ID_ByteStreams]->getValuePtr(0, &value, 0));
+
+  // NVS key not saved in the NVS yet, returns default value
+  uint8_t idx_nullptr = idx_out - 1;
+  TEST_ASSERT_TRUE(settings[ID_ByteStreams]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(idx_nullptr)).size,
+                           value.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(
+    bytestreams.getDefaultValue(static_cast<ByteStreams>(idx_nullptr)).data,
+    value.data,
+    value.size);
 }
 
 void test_bytestreams_format() {
   TEST_ASSERT_EQUAL(0, bytestreams.formatAll());
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
     TEST_ASSERT_EQUAL_UINT32(new_bytestream[i].size, value.size);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[i].data, value.data, value.size);
@@ -983,7 +1064,7 @@ void test_bytestreams_format() {
 void test_bytestreams_forceFormat() {
   TEST_ASSERT_EQUAL(0, bytestreams.formatAll(true));
 
-  for (size_t i = 0; i < VALUES; i++) {
+  for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
     TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).size,
                              value.size);
