@@ -8,6 +8,9 @@
   <b>Manage your ESP32 Preferences easily!</b>
 </p>
 
+[![arduino-library-badge](https://www.ardu-badge.com/badge/SettingsManagerESP32.svg?)](https://www.ardu-badge.com/SettingsManagerESP32)
+[![PlatformIO Registry](https://badges.registry.platformio.org/packages/alkonosst/library/SettingsManagerESP32.svg)](https://registry.platformio.org/libraries/alkonosst/SettingsManagerESP32)
+
 ---
 
 # Table of contents <!-- omit in toc -->
