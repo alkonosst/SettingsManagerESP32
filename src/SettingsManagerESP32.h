@@ -112,33 +112,47 @@ class DoublePolicy : public Policy<double> {
 // Policy for string
 class StringPolicy : public Policy<const char*> {
   public:
+  StringPolicy() { _mutex = xSemaphoreCreateMutexStatic(&_mutex_buf); }
+
   bool setValue(const char* key, const char* value) {
     return (nvs.putString(key, value) == strlen(value));
   }
 
   const char* getValue(const char* key, const char* default_value) {
+    xSemaphoreTake(_mutex, portMAX_DELAY);
     size_t len = nvs.getString(key, _buffer, sizeof(_buffer));
     return (len > 0 ? _buffer : default_value);
   }
 
+  void giveMutex() { xSemaphoreGive(_mutex); }
+
   private:
   char _buffer[SETTINGS_STRING_BUFFER_SIZE];
+  SemaphoreHandle_t _mutex;
+  StaticSemaphore_t _mutex_buf;
 };
 
 // Policy for Byte Streams
 class ByteStreamPolicy : public Policy<ByteStream> {
   public:
+  ByteStreamPolicy() { _mutex = xSemaphoreCreateMutexStatic(&_mutex_buf); }
+
   bool setValue(const char* key, const ByteStream value) {
     return (nvs.putBytes(key, value.data, value.size) == value.size);
   }
 
   ByteStream getValue(const char* key, ByteStream default_value) {
+    xSemaphoreTake(_mutex, portMAX_DELAY);
     size_t len = nvs.getBytes(key, _buffer, sizeof(_buffer));
     return (len > 0 ? ByteStream{_buffer, len} : default_value);
   }
 
+  void giveMutex() { xSemaphoreGive(_mutex); }
+
   private:
   uint8_t _buffer[SETTINGS_BYTE_STREAM_BUFFER_SIZE];
+  SemaphoreHandle_t _mutex;
+  StaticSemaphore_t _mutex_buf;
 };
 
 // Type trait to map types to policies
@@ -570,6 +584,28 @@ class Settings : public ISettings {
    */
   bool isFormatteable(ENUM setting) {
     return _list.begin()[static_cast<size_t>(setting)].formatteable;
+  }
+
+  /**
+   * @brief Give the mutex after using the method getValue() for const char* and ByteStream types.
+   * Not needed for other types.
+   */
+  template <typename U = T>
+  typename std::enable_if<std::is_same<U, const char*>::value ||
+                          std::is_same<U, ByteStream>::value>::type
+  giveMutex() {
+    _policy.giveMutex();
+  }
+
+  /**
+   * @brief Static assert for unsupported types.
+   */
+  template <typename U = T>
+  typename std::enable_if<!(std::is_same<U, const char*>::value ||
+                            std::is_same<U, ByteStream>::value)>::type
+  giveMutex() {
+    static_assert(std::is_same<U, const char*>::value || std::is_same<U, ByteStream>::value,
+                  "giveMutex() is only supported for const char* and ByteStream types.");
   }
 
   private:
