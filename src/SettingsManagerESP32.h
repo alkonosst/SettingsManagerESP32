@@ -280,6 +280,12 @@ class ISettings {
   virtual bool getValuePtr(size_t index, void* value, size_t size) = 0;
 
   /**
+   * @brief Give the mutex after using the method getValue() for const char* and ByteStream types.
+   * Not needed for other types.
+   */
+  virtual void giveMutex() = 0;
+
+  /**
    * @brief Set a global callback for all the settings of the object. This callback will be called
    * when a setting is changed.
    * @param callback Callback function
@@ -590,23 +596,7 @@ class Settings : public ISettings {
    * @brief Give the mutex after using the method getValue() for const char* and ByteStream types.
    * Not needed for other types.
    */
-  template <typename U = T>
-  typename std::enable_if<std::is_same<U, const char*>::value ||
-                          std::is_same<U, ByteStream>::value>::type
-  giveMutex() {
-    _policy.giveMutex();
-  }
-
-  /**
-   * @brief Static assert for unsupported types.
-   */
-  template <typename U = T>
-  typename std::enable_if<!(std::is_same<U, const char*>::value ||
-                            std::is_same<U, ByteStream>::value)>::type
-  giveMutex() {
-    static_assert(std::is_same<U, const char*>::value || std::is_same<U, ByteStream>::value,
-                  "giveMutex() is only supported for const char* and ByteStream types.");
-  }
+  void giveMutex() override { giveMutexImpl(); }
 
   private:
   std::initializer_list<Struct> _list;
@@ -689,6 +679,20 @@ class Settings : public ISettings {
     memcpy(value, &temp, sizeof(U));
     return true;
   }
+
+  // Implementation for const char* and ByteStream types
+  template <typename U = T>
+  typename std::enable_if<std::is_same<U, const char*>::value ||
+                          std::is_same<U, ByteStream>::value>::type
+  giveMutexImpl() {
+    _policy.giveMutex();
+  }
+
+  // Empty implementation for all other types
+  template <typename U = T>
+  typename std::enable_if<!(std::is_same<U, const char*>::value ||
+                            std::is_same<U, ByteStream>::value)>::type
+  giveMutexImpl() {}
 
   template <typename U = T>
   void runGlobalCallback(const char* key, Type type, size_t index, U value, std::false_type) {
