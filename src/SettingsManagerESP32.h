@@ -20,9 +20,10 @@
 #endif
 
 // X-macros
-#define SETTINGS_EXPAND_ENUM_CLASS(name, text, value, formatteable) name,
-#define SETTINGS_EXPAND_SETTINGS(name, text, value, formatteable) \
-  {#name, text, value, formatteable},
+#define SETTINGS_EXPAND_ENUM_CLASS(name, text, value, formattable) name,
+#define SETTINGS_EXPAND_SETTINGS(name, text, value, formattable)   {#name, text, value, formattable},
+#define SETTINGS_ADD_ELEMENT(...)                                  +1
+#define SETTINGS_COUNT(settings_macro)                             (0 settings_macro(SETTINGS_ADD_ELEMENT))
 
 // NVS (non-volatile storage ESP32)
 extern Preferences nvs;
@@ -44,8 +45,8 @@ template <typename T>
 struct Setting {
   const char* key;
   const char* hint;
-  const T default_value;
-  const bool formatteable;
+  T default_value;
+  bool formattable;
 };
 
 // Policy types
@@ -288,17 +289,17 @@ class ISettings {
   virtual bool hasKey(const char* key, size_t& index_found) = 0;
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param index Index in the list
-   * @return true Formatteable
-   * @return false Not formatteable or index out of bounds
+   * @return true Formattable
+   * @return false Not formattable or index out of bounds
    */
-  virtual bool isFormatteable(size_t index) = 0;
+  virtual bool isFormattable(size_t index) = 0;
 
   /**
    * @brief Format a setting to its default value.
    * @param index Index in the list
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format or index out of bounds
    */
@@ -306,7 +307,7 @@ class ISettings {
 
   /**
    * @brief Format all settings to their default values.
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return size_t Number of errors while trying to format
    */
   virtual size_t formatAll(bool force = false) = 0;
@@ -326,7 +327,7 @@ inline const char* ISettings::getDefaultValueAs<const char*>(size_t index) {
  * @tparam T Type of the setting
  * @tparam ENUM Enum class with all the settings
  */
-template <typename T, typename ENUM>
+template <typename T, typename ENUM, size_t N>
 class Settings : public ISettings {
   public:
   using Policy = typename Internal::PolicyTrait<T>::policy_type;
@@ -335,11 +336,12 @@ class Settings : public ISettings {
     typename std::function<void(const char* key, const ENUM setting, const T updated_value)>;
 
   Settings(std::initializer_list<Struct> list)
-      : _list(list)
-      , _global_on_change_cb(nullptr)
-      , _global_on_change_cb_callable_on_format(false)
-      , _on_change_cbs(_list.size(), nullptr)
-      , _on_change_cbs_callable_on_format(_list.size(), false) {}
+      : _global_on_change_cb(nullptr)
+      , _global_on_change_cb_callable_on_format(false) {
+    _on_change_cbs.fill(nullptr);
+    _on_change_cbs_callable_on_format.fill(false);
+    std::copy_n(list.begin(), N, _list.begin());
+  }
 
   const Type getType() override { return Internal::PolicyTrait<T>::enum_type; }
 
@@ -352,7 +354,7 @@ class Settings : public ISettings {
    */
   const char* getKey(size_t index) override {
     if (index >= getSize()) return nullptr;
-    return _list.begin()[index].key;
+    return _list[index].key;
   }
 
   /**
@@ -362,7 +364,7 @@ class Settings : public ISettings {
    */
   const char* getHint(size_t index) override {
     if (index >= getSize()) return nullptr;
-    return _list.begin()[index].hint;
+    return _list[index].hint;
   }
 
   /**
@@ -428,7 +430,7 @@ class Settings : public ISettings {
    */
   bool hasKey(const char* key, size_t& index_found) override {
     for (size_t i = 0; i < getSize(); i++) {
-      if (strcmp(_list.begin()[i].key, key) == 0) {
+      if (strcmp(_list[i].key, key) == 0) {
         index_found = i;
         return true;
       }
@@ -438,41 +440,41 @@ class Settings : public ISettings {
   }
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param index Index in the list
-   * @return true Formatteable
-   * @return false Not formatteable or index out of bounds
+   * @return true Formattable
+   * @return false Not formattable or index out of bounds
    */
-  bool isFormatteable(size_t index) override {
+  bool isFormattable(size_t index) override {
     if (index >= getSize()) return false;
-    return _list.begin()[index].formatteable;
+    return _list[index].formattable;
   }
 
   /**
    * @brief Format a setting to its default value.
    * @param index Index in the list
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format or index out of bounds
    */
   bool format(size_t index, bool force = false) override {
     if (index >= getSize()) return false;
 
-    if (!isFormatteable(index) && !force) return false;
+    if (!isFormattable(index) && !force) return false;
 
     return setValueImpl(static_cast<ENUM>(index), getDefaultValue(index), true);
   }
 
   /**
    * @brief Format all settings to their default values.
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return size_t Number of errors while trying to format
    */
   size_t formatAll(bool force = false) override {
     size_t errors = 0;
 
     for (size_t i = 0; i < getSize(); i++) {
-      if (!isFormatteable(i) && !force) continue;
+      if (!isFormattable(i) && !force) continue;
 
       if (!setValueImpl(static_cast<ENUM>(i), getDefaultValue(i), true)) errors++;
     }
@@ -483,7 +485,7 @@ class Settings : public ISettings {
   /**
    * @brief Format a setting to its default value.
    * @param ENUM Selected setting
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format
    */
@@ -496,14 +498,14 @@ class Settings : public ISettings {
    * @param index Index in the list
    * @return const char* Key string
    */
-  const char* getKey(ENUM setting) { return _list.begin()[static_cast<size_t>(setting)].key; }
+  const char* getKey(ENUM setting) { return _list[static_cast<size_t>(setting)].key; }
 
   /**
    * @brief Get a hint string.
    * @param index Index in the list
    * @return const char* Hint string
    */
-  const char* getHint(ENUM setting) { return _list.begin()[static_cast<size_t>(setting)].hint; }
+  const char* getHint(ENUM setting) { return _list[static_cast<size_t>(setting)].hint; }
 
   /**
    * @brief Get a default value.
@@ -512,7 +514,7 @@ class Settings : public ISettings {
    */
   T getDefaultValue(size_t index) {
     if (index >= getSize()) return T();
-    return _list.begin()[index].default_value;
+    return _list[index].default_value;
   }
 
   /**
@@ -520,9 +522,7 @@ class Settings : public ISettings {
    * @param ENUM Selected setting
    * @return T Setting default value
    */
-  T getDefaultValue(ENUM setting) {
-    return _list.begin()[static_cast<size_t>(setting)].default_value;
-  }
+  T getDefaultValue(ENUM setting) { return _list[static_cast<size_t>(setting)].default_value; }
 
   /**
    * @brief Set a new value.
@@ -563,23 +563,21 @@ class Settings : public ISettings {
   }
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param ENUM Selected setting
-   * @return true Formatteable
-   * @return false Not formatteable
+   * @return true Formattable
+   * @return false Not formattable
    */
-  bool isFormatteable(ENUM setting) {
-    return _list.begin()[static_cast<size_t>(setting)].formatteable;
-  }
+  bool isFormattable(ENUM setting) { return _list[static_cast<size_t>(setting)].formattable; }
 
   private:
-  std::initializer_list<Struct> _list;
-
   GlobalOnChangeCb _global_on_change_cb;
   bool _global_on_change_cb_callable_on_format;
 
-  std::vector<OnChangeCb> _on_change_cbs;
-  std::vector<bool> _on_change_cbs_callable_on_format;
+  std::array<OnChangeCb, N> _on_change_cbs;
+  std::array<bool, N> _on_change_cbs_callable_on_format;
+
+  std::array<Struct, N> _list;
 
   Policy _policy;
 
@@ -608,7 +606,7 @@ class Settings : public ISettings {
   // Template specializations for const char* (strings)
   template <typename U = T>
   const void* getDefaultValuePtrImpl(size_t index, std::true_type) {
-    return static_cast<const void*>(_list.begin()[index].default_value);
+    return static_cast<const void*>(_list[index].default_value);
   }
 
   template <typename U = T>
@@ -636,7 +634,7 @@ class Settings : public ISettings {
   // Template specializations for all other types
   template <typename U = T>
   const void* getDefaultValuePtrImpl(size_t index, std::false_type) {
-    return static_cast<const void*>(&(_list.begin()[index].default_value));
+    return static_cast<const void*>(&(_list[index].default_value));
   }
 
   template <typename U = T>
