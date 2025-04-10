@@ -9,8 +9,7 @@
 #define UNITY_INCLUDE_DOUBLE
 #include <unity.h>
 
-#include "../../../src/SettingsManagerESP32.h"
-#include <Preferences.h>
+#include "SettingsManagerESP32.h"
 
 Preferences nvs;
 
