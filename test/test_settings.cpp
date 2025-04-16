@@ -9,10 +9,7 @@
 #define UNITY_INCLUDE_DOUBLE
 #include <unity.h>
 
-#include "../../../src/SettingsManagerESP32.h"
-#include <Preferences.h>
-
-Preferences nvs;
+#include "SettingsManagerESP32.h"
 
 /* ---------------------------------------------------------------------------------------------- */
 // - 3 settings for each type. The test will write to NVS only 2 of them, the third will be
