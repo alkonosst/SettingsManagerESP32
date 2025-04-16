@@ -28,7 +28,7 @@
     - [Step 2 alternative: Creating `enum class` and `settings list` (automatic)](#step-2-alternative-creating-enum-class-and-settings-list-automatic)
     - [Example](#example)
   - [Setting types](#setting-types)
-- [TODO](#todo)
+  - [Important notes](#important-notes)
 
 ---
 
@@ -101,7 +101,7 @@ build_flags =
 ### What is inside the library
 
 The library creates a ESP32 `Preferences` object to manage the non-volatile storage named `nvs`. You can use
-this object, if needed, to access de NVS directly:
+this object, if needed, to access the NVS directly:
 
 ```cpp
 Preferences nvs;
@@ -124,7 +124,7 @@ And the available types are:
 ## Constructors and initialization
 
 This library makes use of [X-Macros](https://en.wikipedia.org/wiki/X_macro) to make the code
-maintainable and escalable. You can easily add, edit or remove a setting in the same place.
+maintainable and scalable. You can easily add, edit or remove a setting in the same place.
 
 ### Step 1: Defining your settings in a macro
 
@@ -139,9 +139,9 @@ In order to create a new group of settings, you need to define a macro with the 
 
 Structure of the macro:
 
-|      | First (key)                                                                                    | Second (hint)                           | Third (default value)                                         | Fourth (formatteable)       |     |
-| ---- | ---------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------- | --------------------------- | --- |
-| `X(` | Enum class member, also used as a key (**no more than 15 characters** and **no whitespaces**). | Text to describe what the setting does. | Default value. In the example above, a value of type `float`. | Setting formatteable or not | `)` |
+|      | First (key)                                                                                    | Second (hint)                           | Third (default value)                                         | Fourth (formattable)       |     |
+| ---- | ---------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------- | -------------------------- | --- |
+| `X(` | Enum class member, also used as a key (**no more than 15 characters** and **no whitespaces**). | Text to describe what the setting does. | Default value. In the example above, a value of type `float`. | Setting formattable or not | `)` |
 
 Each new row is a new setting. All settings in the same macro must be of the same
 type. In the example above all settings are `float`.
@@ -195,7 +195,7 @@ And finally it will expand to this:
 
 ```cpp
 enum class Floats : uint8_t { SenThr, AdcSlope, Another };
-NVS::Settings<float, MyFloats> st_Floats = {
+NVS::Settings<float, Floats> st_Floats = {
   {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
   {"AdcSlope", "ADC Slope Factor",         1.2345, true},
   {"Another",  "Another setting",          0.0   , true}
@@ -205,6 +205,9 @@ NVS::Settings<float, MyFloats> st_Floats = {
 Now you can use the `st_Floats` object and the `Floats` enum class.
 
 ### Example
+
+The following code shows a general example of how to use the library. For more examples, refer to
+the `examples` folder.
 
 ```cpp
 // Change the buffer size
@@ -299,7 +302,23 @@ SETTINGS_CREATE_STRINGS(Strings, STRINGS) // String, array of characters
 SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
 ```
 
-# TODO
+## Important notes
 
-- Illustrate how to use the all the methods available in the library.
-- Add more examples.
+The `string` and `byte stream` types are special. When reading a value of these types using
+`getValue()`, **you need to give a mutex using the** `giveMutex()` **method after you are done using the
+value**, like this:
+
+```cpp
+// Get the value of the setting
+const char* str_value = strings.getValue(Strings::String_1);
+
+// Do something with the value
+// ...
+
+// Give the mutex back to the library
+strings.giveMutex();
+```
+
+This is because the library creates a static buffer to store the value, and this buffer is shared
+between all settings of the same object to save space in the RAM. This is not a problem for the
+other types.
