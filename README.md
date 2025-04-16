@@ -101,7 +101,7 @@ build_flags =
 ### What is inside the library
 
 The library creates a ESP32 `Preferences` object to manage the non-volatile storage named `nvs`. You can use
-this object, if needed, to access de NVS directly:
+this object, if needed, to access the NVS directly:
 
 ```cpp
 Preferences nvs;
