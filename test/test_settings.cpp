@@ -74,25 +74,29 @@ NVS::ByteStream new_bytestream[NVS_VALUES] = {
 
 // Instantiation of settings
 enum class Bools : uint8_t { BOOLS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<bool, Bools> bools = {BOOLS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<bool, Bools, SETTINGS_COUNT(BOOLS)> bools = {BOOLS(SETTINGS_EXPAND_SETTINGS)};
 
 enum class UInt32s : uint8_t { UINT32S(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<uint32_t, UInt32s> uint32s = {UINT32S(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<uint32_t, UInt32s, SETTINGS_COUNT(UINT32S)> uint32s = {
+  UINT32S(SETTINGS_EXPAND_SETTINGS)};
 
 enum class Int32s : uint8_t { INT32S(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<int32_t, Int32s> int32s = {INT32S(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<int32_t, Int32s, SETTINGS_COUNT(INT32S)> int32s = {INT32S(SETTINGS_EXPAND_SETTINGS)};
 
 enum class Floats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<float, Floats> floats = {FLOATS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<float, Floats, SETTINGS_COUNT(FLOATS)> floats = {FLOATS(SETTINGS_EXPAND_SETTINGS)};
 
 enum class Doubles : uint8_t { DOUBLES(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<double, Doubles> doubles = {DOUBLES(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<double, Doubles, SETTINGS_COUNT(DOUBLES)> doubles = {
+  DOUBLES(SETTINGS_EXPAND_SETTINGS)};
 
 enum class Strings : uint8_t { STRINGS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<const char*, Strings> strings = {STRINGS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<const char*, Strings, SETTINGS_COUNT(STRINGS)> strings = {
+  STRINGS(SETTINGS_EXPAND_SETTINGS)};
 
 enum class ByteStreams : uint8_t { BYTESTREAMS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<NVS::ByteStream, ByteStreams> bytestreams = {BYTESTREAMS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<NVS::ByteStream, ByteStreams, SETTINGS_COUNT(BYTESTREAMS)> bytestreams = {
+  BYTESTREAMS(SETTINGS_EXPAND_SETTINGS)};
 
 NVS::ISettings* settings[] = {&bools, &uint32s, &int32s, &floats, &doubles, &strings, &bytestreams};
 constexpr size_t settings_size = sizeof(settings) / sizeof(settings[0]);
