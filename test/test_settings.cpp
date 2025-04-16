@@ -870,7 +870,9 @@ void test_strings_setValue() {
 
 void test_strings_getValue() {
   TEST_ASSERT_EQUAL_STRING(new_string[0], strings.getValue(Strings::String_1));
+  strings.giveMutex();
   TEST_ASSERT_EQUAL_STRING(new_string[1], strings.getValue(Strings::String_2));
+  strings.giveMutex();
 }
 
 void test_strings_hasKey() {
@@ -898,7 +900,10 @@ void test_strings_pointer() {
 
     // Value
     TEST_ASSERT_TRUE(settings[ID_Strings]->getValuePtr(i, buffer, sizeof(buffer)));
+    settings[ID_Strings]->giveMutex();
+
     TEST_ASSERT_EQUAL_STRING(strings.getValue(static_cast<Strings>(i)), buffer);
+    settings[ID_Strings]->giveMutex();
 
     // Default value
     TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(static_cast<Strings>(i)),
@@ -913,13 +918,16 @@ void test_strings_pointer() {
   TEST_ASSERT_NULL(settings[ID_Strings]->getDefaultValueAs<const char*>(idx_out));
 
   TEST_ASSERT_FALSE(settings[ID_Strings]->getValuePtr(idx_out, buffer, sizeof(buffer)));
+  settings[ID_Strings]->giveMutex();
 
   // Buffer too small
   TEST_ASSERT_FALSE(settings[ID_Strings]->getValuePtr(0, buffer, 0));
+  settings[ID_Strings]->giveMutex();
 
   // NVS key not saved in the NVS yet, returns default value
   uint8_t idx_nullptr = idx_out - 1;
   TEST_ASSERT_TRUE(settings[ID_Strings]->getValuePtr(idx_nullptr, buffer, sizeof(buffer)));
+  settings[ID_Strings]->giveMutex();
   TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(static_cast<Strings>(idx_nullptr)), buffer);
 }
 
@@ -928,6 +936,7 @@ void test_strings_format() {
 
   for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_STRING(new_string[i], strings.getValue(static_cast<Strings>(i)));
+    strings.giveMutex();
   }
 }
 
@@ -937,6 +946,7 @@ void test_strings_forceFormat() {
   for (size_t i = 0; i < NVS_VALUES; i++) {
     TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(static_cast<Strings>(i)),
                              strings.getValue(static_cast<Strings>(i)));
+    strings.giveMutex();
   }
 }
 /* ---------------------------------------------------------------------------------------------- */
@@ -973,10 +983,12 @@ void test_bytestreams_getValue() {
   NVS::ByteStream value;
 
   value = bytestreams.getValue(ByteStreams::Stream_1);
+  bytestreams.giveMutex();
   TEST_ASSERT_EQUAL_UINT32(new_bytestream[0].size, value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[0].data, value.data, value.size);
 
   value = bytestreams.getValue(ByteStreams::Stream_2);
+  bytestreams.giveMutex();
   TEST_ASSERT_EQUAL_UINT32(new_bytestream[1].size, value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[1].data, value.data, value.size);
 }
@@ -1007,9 +1019,14 @@ void test_bytestreams_pointer() {
     // Value
     NVS::ByteStream value;
     TEST_ASSERT_TRUE(settings[ID_ByteStreams]->getValuePtr(i, &value, sizeof(value)));
+    settings[ID_ByteStreams]->giveMutex();
+
     TEST_ASSERT_EQUAL_UINT32(bytestreams.getValue(static_cast<ByteStreams>(i)).size, value.size);
+    settings[ID_ByteStreams]->giveMutex();
+
     TEST_ASSERT_EQUAL_HEX8_ARRAY(
       bytestreams.getValue(static_cast<ByteStreams>(i)).data, value.data, value.size);
+    settings[ID_ByteStreams]->giveMutex();
 
     // Default value
     TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).size,
@@ -1033,13 +1050,17 @@ void test_bytestreams_pointer() {
 
   NVS::ByteStream value;
   TEST_ASSERT_FALSE(settings[ID_ByteStreams]->getValuePtr(idx_out, &value, sizeof(value)));
+  settings[ID_ByteStreams]->giveMutex();
 
   // Buffer too small
   TEST_ASSERT_FALSE(settings[ID_ByteStreams]->getValuePtr(0, &value, 0));
+  settings[ID_ByteStreams]->giveMutex();
 
   // NVS key not saved in the NVS yet, returns default value
   uint8_t idx_nullptr = idx_out - 1;
   TEST_ASSERT_TRUE(settings[ID_ByteStreams]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+  settings[ID_ByteStreams]->giveMutex();
+
   TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(idx_nullptr)).size,
                            value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(
@@ -1053,6 +1074,7 @@ void test_bytestreams_format() {
 
   for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
+    bytestreams.giveMutex();
     TEST_ASSERT_EQUAL_UINT32(new_bytestream[i].size, value.size);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[i].data, value.data, value.size);
   }
@@ -1063,13 +1085,13 @@ void test_bytestreams_forceFormat() {
 
   for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
+    bytestreams.giveMutex();
     TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).size,
                              value.size);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(
       bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).data, value.data, value.size);
   }
 }
-
 /* ---------------------------------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------------------------------- */
