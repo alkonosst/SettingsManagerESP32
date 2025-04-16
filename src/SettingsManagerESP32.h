@@ -8,8 +8,8 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
+#include <array>
 #include <initializer_list>
-#include <vector>
 
 #ifndef SETTINGS_STRING_BUFFER_SIZE
 #define SETTINGS_STRING_BUFFER_SIZE 32
@@ -22,6 +22,10 @@
 // X-macros
 #define SETTINGS_EXPAND_ENUM_CLASS(name, text, value, formattable) name,
 #define SETTINGS_EXPAND_SETTINGS(name, text, value, formattable)   {#name, text, value, formattable},
+#define SETTINGS_ADD_ELEMENT(...)                                  +1
+
+// Macro to count the number of elements in a X-Macro list
+#define SETTINGS_COUNT(settings_macro) (0 settings_macro(SETTINGS_ADD_ELEMENT))
 
 // NVS (non-volatile storage ESP32)
 extern Preferences nvs;
@@ -43,8 +47,8 @@ template <typename T>
 struct Setting {
   const char* key;
   const char* hint;
-  const T default_value;
-  const bool formattable;
+  T default_value;
+  bool formattable;
 };
 
 // Policy types
@@ -355,11 +359,12 @@ class Settings : public ISettings {
     typename std::function<void(const char* key, const ENUM setting, const T updated_value)>;
 
   Settings(std::initializer_list<Struct> list)
-      : _list(list)
-      , _global_on_change_cb(nullptr)
-      , _global_on_change_cb_callable_on_format(false)
-      , _on_change_cbs(_list.size(), nullptr)
-      , _on_change_cbs_callable_on_format(_list.size(), false) {}
+      : _global_on_change_cb(nullptr)
+      , _global_on_change_cb_callable_on_format(false) {
+    _on_change_cbs.fill(nullptr);
+    _on_change_cbs_callable_on_format.fill(false);
+    std::copy_n(list.begin(), N, _list.begin());
+  }
 
   const Type getType() override { return Internal::PolicyTrait<T>::enum_type; }
 
@@ -601,7 +606,7 @@ class Settings : public ISettings {
   std::array<OnChangeCb, N> _on_change_cbs;
   std::array<bool, N> _on_change_cbs_callable_on_format;
 
-  std::array<Struct> _list;
+  std::array<Struct, N> _list;
 
   Policy _policy;
 
@@ -700,28 +705,35 @@ class Settings : public ISettings {
 // Macros to create settings's enum class and object list with a single line
 #define SETTINGS_CREATE_BOOLS(name, settings_macro)                         \
   enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<bool, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+  NVS::Settings<bool, name, SETTINGS_COUNT(settings_macro)> st_##name = {   \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
-#define SETTINGS_CREATE_UINT32S(name, settings_macro)                       \
-  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<uint32_t, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+#define SETTINGS_CREATE_UINT32S(name, settings_macro)                         \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) };   \
+  NVS::Settings<uint32_t, name, SETTINGS_COUNT(settings_macro)> st_##name = { \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
-#define SETTINGS_CREATE_INT32S(name, settings_macro)                        \
-  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<int32_t, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+#define SETTINGS_CREATE_INT32S(name, settings_macro)                         \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) };  \
+  NVS::Settings<int32_t, name, SETTINGS_COUNT(settings_macro)> st_##name = { \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
 #define SETTINGS_CREATE_FLOATS(name, settings_macro)                        \
   enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<float, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+  NVS::Settings<float, name, SETTINGS_COUNT(settings_macro)> st_##name = {  \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
 #define SETTINGS_CREATE_DOUBLES(name, settings_macro)                       \
   enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<double, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+  NVS::Settings<double, name, SETTINGS_COUNT(settings_macro)> st_##name = { \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
-#define SETTINGS_CREATE_STRINGS(name, settings_macro)                       \
-  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<const char*, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+#define SETTINGS_CREATE_STRINGS(name, settings_macro)                            \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) };      \
+  NVS::Settings<const char*, name, SETTINGS_COUNT(settings_macro)> st_##name = { \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
 
-#define SETTINGS_CREATE_BYTE_STREAMS(name, settings_macro)                  \
-  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) }; \
-  NVS::Settings<NVS::ByteStream, name> st_##name = {settings_macro(SETTINGS_EXPAND_SETTINGS)};
+#define SETTINGS_CREATE_BYTE_STREAMS(name, settings_macro)                           \
+  enum class name : uint8_t { settings_macro(SETTINGS_EXPAND_ENUM_CLASS) };          \
+  NVS::Settings<NVS::ByteStream, name, SETTINGS_COUNT(settings_macro)> st_##name = { \
+    settings_macro(SETTINGS_EXPAND_SETTINGS)};
