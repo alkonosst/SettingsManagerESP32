@@ -22,7 +22,7 @@
   X(UInt_3, "UInt 3", 3, true)
 
 enum class UInts : uint8_t { UINTS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<uint32_t, UInts> uints = {UINTS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<uint32_t, UInts, SETTINGS_COUNT(UINTS)> uints = {UINTS(SETTINGS_EXPAND_SETTINGS)};
 
 void setup() {
   Serial.begin(115200);

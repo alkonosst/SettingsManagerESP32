@@ -22,7 +22,8 @@
   X(Str_3, "Str 3", "str 3", true)
 
 enum class Strings : uint8_t { STRINGS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<const char*, Strings> strings = {STRINGS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<const char*, Strings, SETTINGS_COUNT(STRINGS)> strings = {
+  STRINGS(SETTINGS_EXPAND_SETTINGS)};
 
 void setup() {
   Serial.begin(115200);

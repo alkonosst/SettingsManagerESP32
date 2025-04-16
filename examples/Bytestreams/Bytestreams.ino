@@ -15,15 +15,17 @@
 
 #include "SettingsManagerESP32.h"
 
+// Example of Bytestream values with string data (size includes null terminator)
+
 // Default values
-const NVS::ByteStream bs1_default = {reinterpret_cast<const uint8_t*>("111"), 3};
-const NVS::ByteStream bs2_default = {reinterpret_cast<const uint8_t*>("222"), 3};
-const NVS::ByteStream bs3_default = {reinterpret_cast<const uint8_t*>("333"), 3};
+const NVS::ByteStream bs1_default = {reinterpret_cast<const uint8_t*>("111"), 4};
+const NVS::ByteStream bs2_default = {reinterpret_cast<const uint8_t*>("222"), 4};
+const NVS::ByteStream bs3_default = {reinterpret_cast<const uint8_t*>("333"), 4};
 
 // New values
-const NVS::ByteStream bs1_new = {reinterpret_cast<const uint8_t*>("aaaaaa"), 6};
-const NVS::ByteStream bs2_new = {reinterpret_cast<const uint8_t*>("bbbbbb"), 6};
-const NVS::ByteStream bs3_new = {reinterpret_cast<const uint8_t*>("cccccc"), 6};
+const NVS::ByteStream bs1_new = {reinterpret_cast<const uint8_t*>("aaaaaa"), 7};
+const NVS::ByteStream bs2_new = {reinterpret_cast<const uint8_t*>("bbbbbb"), 7};
+const NVS::ByteStream bs3_new = {reinterpret_cast<const uint8_t*>("cccccc"), 7};
 
 const NVS::ByteStream* bs_new_values[] = {&bs1_new, &bs2_new, &bs3_new};
 
@@ -34,7 +36,8 @@ const NVS::ByteStream* bs_new_values[] = {&bs1_new, &bs2_new, &bs3_new};
   X(BS_3, "bs 3", bs3_default, true)
 
 enum class ByteStreams : uint8_t { BYTESTREAMS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<NVS::ByteStream, ByteStreams> bs = {BYTESTREAMS(SETTINGS_EXPAND_SETTINGS)};
+NVS::Settings<NVS::ByteStream, ByteStreams, SETTINGS_COUNT(BYTESTREAMS)> bs = {
+  BYTESTREAMS(SETTINGS_EXPAND_SETTINGS)};
 
 void setup() {
   Serial.begin(115200);
