@@ -344,8 +344,9 @@ inline const char* ISettings::getDefaultValueAs<const char*>(size_t index) {
  *
  * @tparam T Type of the setting
  * @tparam ENUM Enum class with all the settings
+ * @tparam N Number of settings in the list
  */
-template <typename T, typename ENUM>
+template <typename T, typename ENUM, size_t N>
 class Settings : public ISettings {
   public:
   using Policy = typename Internal::PolicyTrait<T>::policy_type;
@@ -371,7 +372,7 @@ class Settings : public ISettings {
    */
   const char* getKey(size_t index) override {
     if (index >= getSize()) return nullptr;
-    return _list.begin()[index].key;
+    return _list[index].key;
   }
 
   /**
@@ -381,7 +382,7 @@ class Settings : public ISettings {
    */
   const char* getHint(size_t index) override {
     if (index >= getSize()) return nullptr;
-    return _list.begin()[index].hint;
+    return _list[index].hint;
   }
 
   /**
@@ -447,7 +448,7 @@ class Settings : public ISettings {
    */
   bool hasKey(const char* key, size_t& index_found) override {
     for (size_t i = 0; i < getSize(); i++) {
-      if (strcmp(_list.begin()[i].key, key) == 0) {
+      if (strcmp(_list[i].key, key) == 0) {
         index_found = i;
         return true;
       }
@@ -464,7 +465,7 @@ class Settings : public ISettings {
    */
   bool isFormattable(size_t index) override {
     if (index >= getSize()) return false;
-    return _list.begin()[index].formattable;
+    return _list[index].formattable;
   }
 
   /**
@@ -515,14 +516,14 @@ class Settings : public ISettings {
    * @param index Index in the list
    * @return const char* Key string
    */
-  const char* getKey(ENUM setting) { return _list.begin()[static_cast<size_t>(setting)].key; }
+  const char* getKey(ENUM setting) { return _list[static_cast<size_t>(setting)].key; }
 
   /**
    * @brief Get a hint string.
    * @param index Index in the list
    * @return const char* Hint string
    */
-  const char* getHint(ENUM setting) { return _list.begin()[static_cast<size_t>(setting)].hint; }
+  const char* getHint(ENUM setting) { return _list[static_cast<size_t>(setting)].hint; }
 
   /**
    * @brief Get a default value.
@@ -531,7 +532,7 @@ class Settings : public ISettings {
    */
   T getDefaultValue(size_t index) {
     if (index >= getSize()) return T();
-    return _list.begin()[index].default_value;
+    return _list[index].default_value;
   }
 
   /**
@@ -539,9 +540,7 @@ class Settings : public ISettings {
    * @param ENUM Selected setting
    * @return T Setting default value
    */
-  T getDefaultValue(ENUM setting) {
-    return _list.begin()[static_cast<size_t>(setting)].default_value;
-  }
+  T getDefaultValue(ENUM setting) { return _list[static_cast<size_t>(setting)].default_value; }
 
   /**
    * @brief Set a new value.
@@ -587,9 +586,7 @@ class Settings : public ISettings {
    * @return true Formattable
    * @return false Not formattable
    */
-  bool isFormattable(ENUM setting) {
-    return _list.begin()[static_cast<size_t>(setting)].formattable;
-  }
+  bool isFormattable(ENUM setting) { return _list[static_cast<size_t>(setting)].formattable; }
 
   /**
    * @brief Give the mutex after using the method getValue() for const char* and ByteStream types.
@@ -598,13 +595,13 @@ class Settings : public ISettings {
   void giveMutex() override { giveMutexImpl(); }
 
   private:
-  std::initializer_list<Struct> _list;
-
   GlobalOnChangeCb _global_on_change_cb;
   bool _global_on_change_cb_callable_on_format;
 
-  std::vector<OnChangeCb> _on_change_cbs;
-  std::vector<bool> _on_change_cbs_callable_on_format;
+  std::array<OnChangeCb, N> _on_change_cbs;
+  std::array<bool, N> _on_change_cbs_callable_on_format;
+
+  std::array<Struct> _list;
 
   Policy _policy;
 
@@ -633,7 +630,7 @@ class Settings : public ISettings {
   // Template specializations for const char* (strings)
   template <typename U = T>
   const void* getDefaultValuePtrImpl(size_t index, std::true_type) {
-    return static_cast<const void*>(_list.begin()[index].default_value);
+    return static_cast<const void*>(_list[index].default_value);
   }
 
   template <typename U = T>
@@ -661,7 +658,7 @@ class Settings : public ISettings {
   // Template specializations for all other types
   template <typename U = T>
   const void* getDefaultValuePtrImpl(size_t index, std::false_type) {
-    return static_cast<const void*>(&(_list.begin()[index].default_value));
+    return static_cast<const void*>(&(_list[index].default_value));
   }
 
   template <typename U = T>
