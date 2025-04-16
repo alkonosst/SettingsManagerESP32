@@ -28,6 +28,7 @@
     - [Step 2 alternative: Creating `enum class` and `settings list` (automatic)](#step-2-alternative-creating-enum-class-and-settings-list-automatic)
     - [Example](#example)
   - [Setting types](#setting-types)
+  - [Important notes](#important-notes)
 
 ---
 
@@ -300,3 +301,24 @@ SETTINGS_CREATE_DOUBLES(Doubles, DOUBLES) // Double precision floating-point
 SETTINGS_CREATE_STRINGS(Strings, STRINGS) // String, array of characters
 SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
 ```
+
+## Important notes
+
+The `string` and `bytestream` types are special. When reading a value of these types using
+`getValue()`, **you need to give a mutex using the** `giveMutex()` **method after you are done using the
+value**, like this:
+
+```cpp
+// Get the value of the setting
+const char* str_value = strings.getValue(Strings::String_1);
+
+// Do something with the value
+// ...
+
+// Give the mutex back to the library
+strings.giveMutex();
+```
+
+This is because the library creates a static buffer to store the value, and this buffer is shared
+between all settings of the same object to save space in the RAM. This is not a problem for the
+other types.
