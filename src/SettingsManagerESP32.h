@@ -20,9 +20,8 @@
 #endif
 
 // X-macros
-#define SETTINGS_EXPAND_ENUM_CLASS(name, text, value, formatteable) name,
-#define SETTINGS_EXPAND_SETTINGS(name, text, value, formatteable) \
-  {#name, text, value, formatteable},
+#define SETTINGS_EXPAND_ENUM_CLASS(name, text, value, formattable) name,
+#define SETTINGS_EXPAND_SETTINGS(name, text, value, formattable)   {#name, text, value, formattable},
 
 // NVS (non-volatile storage ESP32)
 extern Preferences nvs;
@@ -45,7 +44,7 @@ struct Setting {
   const char* key;
   const char* hint;
   const T default_value;
-  const bool formatteable;
+  const bool formattable;
 };
 
 // Policy types
@@ -308,17 +307,17 @@ class ISettings {
   virtual bool hasKey(const char* key, size_t& index_found) = 0;
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param index Index in the list
-   * @return true Formatteable
-   * @return false Not formatteable or index out of bounds
+   * @return true Formattable
+   * @return false Not formattable or index out of bounds
    */
-  virtual bool isFormatteable(size_t index) = 0;
+  virtual bool isFormattable(size_t index) = 0;
 
   /**
    * @brief Format a setting to its default value.
    * @param index Index in the list
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format or index out of bounds
    */
@@ -326,7 +325,7 @@ class ISettings {
 
   /**
    * @brief Format all settings to their default values.
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return size_t Number of errors while trying to format
    */
   virtual size_t formatAll(bool force = false) = 0;
@@ -458,41 +457,41 @@ class Settings : public ISettings {
   }
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param index Index in the list
-   * @return true Formatteable
-   * @return false Not formatteable or index out of bounds
+   * @return true Formattable
+   * @return false Not formattable or index out of bounds
    */
-  bool isFormatteable(size_t index) override {
+  bool isFormattable(size_t index) override {
     if (index >= getSize()) return false;
-    return _list.begin()[index].formatteable;
+    return _list.begin()[index].formattable;
   }
 
   /**
    * @brief Format a setting to its default value.
    * @param index Index in the list
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format or index out of bounds
    */
   bool format(size_t index, bool force = false) override {
     if (index >= getSize()) return false;
 
-    if (!isFormatteable(index) && !force) return false;
+    if (!isFormattable(index) && !force) return false;
 
     return setValueImpl(static_cast<ENUM>(index), getDefaultValue(index), true);
   }
 
   /**
    * @brief Format all settings to their default values.
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return size_t Number of errors while trying to format
    */
   size_t formatAll(bool force = false) override {
     size_t errors = 0;
 
     for (size_t i = 0; i < getSize(); i++) {
-      if (!isFormatteable(i) && !force) continue;
+      if (!isFormattable(i) && !force) continue;
 
       if (!setValueImpl(static_cast<ENUM>(i), getDefaultValue(i), true)) errors++;
     }
@@ -503,7 +502,7 @@ class Settings : public ISettings {
   /**
    * @brief Format a setting to its default value.
    * @param ENUM Selected setting
-   * @param force Force the format even if the setting is not formatteable
+   * @param force Force the format even if the setting is not formattable
    * @return true OK
    * @return false Failed to format
    */
@@ -583,13 +582,13 @@ class Settings : public ISettings {
   }
 
   /**
-   * @brief Check if a setting is formatteable.
+   * @brief Check if a setting is formattable.
    * @param ENUM Selected setting
-   * @return true Formatteable
-   * @return false Not formatteable
+   * @return true Formattable
+   * @return false Not formattable
    */
-  bool isFormatteable(ENUM setting) {
-    return _list.begin()[static_cast<size_t>(setting)].formatteable;
+  bool isFormattable(ENUM setting) {
+    return _list.begin()[static_cast<size_t>(setting)].formattable;
   }
 
   /**
