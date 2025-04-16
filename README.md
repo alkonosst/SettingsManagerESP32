@@ -28,7 +28,6 @@
     - [Step 2 alternative: Creating `enum class` and `settings list` (automatic)](#step-2-alternative-creating-enum-class-and-settings-list-automatic)
     - [Example](#example)
   - [Setting types](#setting-types)
-- [TODO](#todo)
 
 ---
 
@@ -206,6 +205,9 @@ Now you can use the `st_Floats` object and the `Floats` enum class.
 
 ### Example
 
+The following code shows a general example of how to use the library. For more examples, refer to
+the `examples` folder.
+
 ```cpp
 // Change the buffer size
 #define SETTINGS_STRING_BUFFER_SIZE 64
@@ -298,8 +300,3 @@ SETTINGS_CREATE_DOUBLES(Doubles, DOUBLES) // Double precision floating-point
 SETTINGS_CREATE_STRINGS(Strings, STRINGS) // String, array of characters
 SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
 ```
-
-# TODO
-
-- Illustrate how to use the all the methods available in the library.
-- Add more examples.
