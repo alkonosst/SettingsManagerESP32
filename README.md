@@ -29,6 +29,8 @@
     - [Example](#example)
   - [Setting types](#setting-types)
   - [Important notes](#important-notes)
+    - [Special types](#special-types)
+    - [Migration from v2.x to v3.x](#migration-from-v2x-to-v3x)
 
 ---
 
@@ -43,7 +45,7 @@ Some of the core features are:
 
 - Single place to manage a list of settings in your code.
 - Capable of having a **Key**, **Description Text** (_hint_) and a **Default Value** for each setting. All
-  these values stored in flash, no use of the heap.
+  these values are stored in the stack, no use of the heap.
 - No need to use a key string to access a setting (_default case in the Preferences library_).
 - Use of automatically created enum class to index your settings.
 - Perfect use with a IDE with autocompletion, like VSCode. See example below.
@@ -109,9 +111,12 @@ Preferences nvs;
 
 All the relevant classes and types are inside the `NVS` namespace. The available classes are:
 
-- `Settings<T, ENUM>`: Main class to manage settings. `T` is the type of the setting and `ENUM` is the enum
-  class to index the settings. The available types are: `bool`, `uint32_t`, `int32_t`, `float`,
-  `double`, `const char*` and `ByteStream`.
+- `Settings<T, ENUM, N>`: Main class to manage settings.
+  - `T` is the type of the setting.
+  - `ENUM` is the enum class to index the settings. The available types are: `bool`, `uint32_t`, `int32_t`, `float`,
+    `double`, `const char*` and `ByteStream`.
+  - `N` is the number of settings in the list. This is automatically calculated by the library using
+    the macro `SETTINGS_COUNT(your_settings_macro)`.
 - `ISettings`: Interface class to manage settings via pointer. You can use this class to create a
   pointer to a particular `Settings` object.
 
@@ -154,14 +159,14 @@ defined previously, as shown below:
 
 ```cpp
 enum class MyFloats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<float, MyFloats> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+NVS::Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
 ```
 
 This automatically will expand to this:
 
 ```cpp
 enum class MyFloats : uint8_t { SenThr, AdcSlope, Another };
-NVS::Settings<float, MyFloats> my_float = {
+NVS::Settings<float, MyFloats, 3> my_float = {
   {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
   {"AdcSlope", "ADC Slope Factor",         1.2345, true},
   {"Another",  "Another setting",          0.0   , true}
@@ -188,14 +193,14 @@ The compiler will expand the macro to this:
 
 ```cpp
 enum class Floats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<float, Floats> st_Floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+NVS::Settings<float, Floats, SETTINGS_COUNT(FLOATS)> st_Floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
 ```
 
 And finally it will expand to this:
 
 ```cpp
 enum class Floats : uint8_t { SenThr, AdcSlope, Another };
-NVS::Settings<float, Floats> st_Floats = {
+NVS::Settings<float, Floats, 3> st_Floats = {
   {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
   {"AdcSlope", "ADC Slope Factor",         1.2345, true},
   {"Another",  "Another setting",          0.0   , true}
@@ -231,7 +236,7 @@ the `examples` folder.
 
 // Step 2: Creating enum class and settings list manually
 enum class Floats { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-Settings<float, Floats> float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+Settings<float, Floats, SETTINGS_COUNT(FLOATS)> float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
 
 // Step 2 alternative: Creating enum class and settings list automatically
 SETTINGS_CREATE_UINT32S(UInt32s, UINT32S)
@@ -304,6 +309,8 @@ SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
 
 ## Important notes
 
+### Special types
+
 The `string` and `byte stream` types are special. When reading a value of these types using
 `getValue()`, **you need to give a mutex using the** `giveMutex()` **method after you are done using the
 value**, like this:
@@ -322,3 +329,30 @@ strings.giveMutex();
 This is because the library creates a static buffer to store the value, and this buffer is shared
 between all settings of the same object to save space in the RAM. This is not a problem for the
 other types.
+
+### Migration from v2.x to v3.x
+
+There is a breaking change in the library from v2.x to v3.x. The `Settings` now has 3 template
+parameters. The third one is the number of settings in the list:
+
+- Manual creation: You must use the macro `SETTINGS_COUNT()` to get the number of settings in the list.
+- Automatic creation: No changes needed.
+
+Example:
+
+```cpp
+#define FLOATS(X) \
+  // ...
+
+enum class MyFloats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
+
+// Old way (v2.x)
+Settings<float, MyFloats> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+
+// New way (v3.x)
+Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+```
+
+This change was made because the **Arduino core v3** makes the `std::initializer_list` member of the
+`Settings` class with undefined behavior. Now the library uses a fixed size `std::array` to store
+the settings list, which is much safer.
