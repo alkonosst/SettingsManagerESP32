@@ -8,8 +8,18 @@
   <b>Manage your ESP32 Preferences easily!</b>
 </p>
 
-[![arduino-library-badge](https://www.ardu-badge.com/badge/SettingsManagerESP32.svg?)](https://www.ardu-badge.com/SettingsManagerESP32)
-[![PlatformIO Registry](https://badges.registry.platformio.org/packages/alkonosst/library/SettingsManagerESP32.svg)](https://registry.platformio.org/libraries/alkonosst/SettingsManagerESP32)
+<p align="center">
+  <a href="https://www.ardu-badge.com/SettingsManagerESP32">
+    <img src="https://www.ardu-badge.com/badge/SettingsManagerESP32.svg?" alt="Arduino Library Badge">
+  </a>
+  <a href="https://registry.platformio.org/libraries/alkonosst/SettingsManagerESP32">
+    <img src="https://badges.registry.platformio.org/packages/alkonosst/library/SettingsManagerESP32.svg" alt="PlatformIO Registry">
+  </a>
+  <br><br>
+  <a href="https://ko-fi.com/alkonosst">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
+    </a>
+</p>
 
 ---
 
@@ -31,6 +41,7 @@
   - [Important notes](#important-notes)
     - [Special types](#special-types)
     - [Migration from v2.x to v3.x](#migration-from-v2x-to-v3x)
+- [License](#license)
 
 ---
 
@@ -356,3 +367,7 @@ Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats = { FLOATS(SETTINGS_
 This change was made because the **Arduino core v3** makes the `std::initializer_list` member of the
 `Settings` class with undefined behavior. Now the library uses a fixed size `std::array` to store
 the settings list, which is much safer.
+
+# License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
