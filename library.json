@@ -1,6 +1,6 @@
 {
   "name": "SettingsManagerESP32",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "authors": {
     "name": "Maximiliano Ramirez",
     "email": "maximiliano.ramirezbravo@gmail.com"
@@ -11,7 +11,7 @@
   },
   "description": "Manage your ESP32 device preferences effortlessly with the SettingsManagerESP32 library. This powerful yet user-friendly library abstract away the complexities of dealing with ESP32 Non-Volatile Storage, providing you with a seamless and intuitive interface to store and retrieve your device settings.",
   "keywords": "arduino, esp32, espressif, preferences, settings, nvs, manage, manager, configuration, store, storage",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "frameworks": "arduino",
   "platforms": "espressif32",
   "headers": "SettingsManagerESP32.h"
