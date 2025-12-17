@@ -48,10 +48,12 @@
   X(String_2, "My String 2", "str 2", false) \
   X(String_3, "My String 3", "str 3", false)
 
-const NVS::ByteStream bytestream1_default = {reinterpret_cast<const uint8_t*>("nvs1"), 4};
-const NVS::ByteStream bytestream2_default = {reinterpret_cast<const uint8_t*>("nvs2"), 4};
-const NVS::ByteStream bytestream3_default = {reinterpret_cast<const uint8_t*>("nvs3"), 4};
-
+const NVS::ByteStream bytestream1_default = {
+  reinterpret_cast<const uint8_t*>("nvs1"), 5, NVS::ByteStream::Format::Hex};
+const NVS::ByteStream bytestream2_default = {
+  reinterpret_cast<const uint8_t*>("nvs2"), 5, NVS::ByteStream::Format::Base64};
+const NVS::ByteStream bytestream3_default = {
+  reinterpret_cast<const uint8_t*>("nvs3"), 5, NVS::ByteStream::Format::JSONObject};
 #define BYTESTREAMS(X)                                       \
   X(Stream_1, "My ByteStream 1", bytestream1_default, false) \
   X(Stream_2, "My ByteStream 2", bytestream2_default, false) \
@@ -61,15 +63,20 @@ constexpr uint8_t TOTAL_VALUES = 3;
 constexpr uint8_t NVS_VALUES   = 2;
 
 // New values
-bool new_bool[NVS_VALUES]                  = {true, false};
-uint32_t new_uint32[NVS_VALUES]            = {11, 12};
-int32_t new_int32[NVS_VALUES]              = {-11, -12};
-float new_float[NVS_VALUES]                = {10.1, 10.2};
-double new_double[NVS_VALUES]              = {11.123456789, 22.123456789};
-const char* new_string[NVS_VALUES]         = {"hello 1", "hello 2"};
+bool new_bool[NVS_VALUES]          = {true, false};
+uint32_t new_uint32[NVS_VALUES]    = {11, 12};
+int32_t new_int32[NVS_VALUES]      = {-11, -12};
+float new_float[NVS_VALUES]        = {10.1, 10.2};
+double new_double[NVS_VALUES]      = {11.123456789, 22.123456789};
+const char* new_string[NVS_VALUES] = {"hello 1", "hello 2"};
+
+// Bytestream new values
+// - Here the format is changed, but it is not changed in NVS when calling setValue()
+// - The default ByteStream's format is the one that matters. So, when calling getValue(), the
+// format member will be the one defined in the default value.
 NVS::ByteStream new_bytestream[NVS_VALUES] = {
-  {reinterpret_cast<const uint8_t*>("test1"), 5},
-  {reinterpret_cast<const uint8_t*>("test2"), 5}
+  {reinterpret_cast<const uint8_t*>("test1"), 5, NVS::ByteStream::Format::JSONArray},
+  {reinterpret_cast<const uint8_t*>("test2"), 5, NVS::ByteStream::Format::Base64   }
 };
 
 // Instantiation of settings
@@ -972,10 +979,12 @@ void test_bytestreams_getDefaultValue() {
   default_value = bytestreams.getDefaultValue(ByteStreams::Stream_1);
   TEST_ASSERT_EQUAL_UINT32(bytestream1_default.size, default_value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(bytestream1_default.data, default_value.data, default_value.size);
+  TEST_ASSERT_EQUAL(bytestream1_default.format, default_value.format);
 
   default_value = bytestreams.getDefaultValue(ByteStreams::Stream_2);
   TEST_ASSERT_EQUAL_UINT32(bytestream2_default.size, default_value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(bytestream2_default.data, default_value.data, default_value.size);
+  TEST_ASSERT_EQUAL(bytestream2_default.format, default_value.format);
 }
 
 void test_bytestreams_setValue() {
@@ -991,10 +1000,16 @@ void test_bytestreams_getValue() {
   TEST_ASSERT_EQUAL_UINT32(new_bytestream[0].size, value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[0].data, value.data, value.size);
 
+  // Bytestream format is not changed. Check against the default format.
+  TEST_ASSERT_EQUAL(bytestream1_default.format, value.format);
+
   value = bytestreams.getValue(ByteStreams::Stream_2);
   bytestreams.giveMutex();
   TEST_ASSERT_EQUAL_UINT32(new_bytestream[1].size, value.size);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[1].data, value.data, value.size);
+
+  // Bytestream format is not changed. Check against the default format.
+  TEST_ASSERT_EQUAL(bytestream2_default.format, value.format);
 }
 
 void test_bytestreams_hasKey() {
@@ -1079,8 +1094,13 @@ void test_bytestreams_format() {
   for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
     bytestreams.giveMutex();
+
     TEST_ASSERT_EQUAL_UINT32(new_bytestream[i].size, value.size);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[i].data, value.data, value.size);
+
+    // Bytestream format is not changed. Check against the default format.
+    TEST_ASSERT_EQUAL(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).format,
+                      value.format);
   }
 }
 
@@ -1090,10 +1110,15 @@ void test_bytestreams_forceFormat() {
   for (size_t i = 0; i < NVS_VALUES; i++) {
     NVS::ByteStream value = bytestreams.getValue(static_cast<ByteStreams>(i));
     bytestreams.giveMutex();
+
     TEST_ASSERT_EQUAL_UINT32(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).size,
                              value.size);
     TEST_ASSERT_EQUAL_HEX8_ARRAY(
       bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).data, value.data, value.size);
+
+    // Bytestream format is not changed. Check against the default format.
+    TEST_ASSERT_EQUAL(bytestreams.getDefaultValue(static_cast<ByteStreams>(i)).format,
+                      value.format);
   }
 }
 /* ---------------------------------------------------------------------------------------------- */

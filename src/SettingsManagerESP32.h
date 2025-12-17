@@ -39,6 +39,13 @@ enum class Type : uint8_t { Bool, UInt32, Int32, Float, Double, String, ByteStre
 struct ByteStream {
   const uint8_t* data;
   size_t size;
+  enum class Format : uint8_t { Hex, Base64, JSONObject, JSONArray } format;
+
+  // Default constructor
+  constexpr ByteStream(const uint8_t* d = nullptr, size_t s = 0, Format f = Format::Hex)
+      : data(d)
+      , size(s)
+      , format(f) {}
 };
 
 namespace Internal {
@@ -147,7 +154,7 @@ class ByteStreamPolicy : public Policy<ByteStream> {
   ByteStream getValue(const char* key, ByteStream default_value) {
     xSemaphoreTake(_mutex, portMAX_DELAY);
     size_t len = nvs.getBytes(key, _buffer, sizeof(_buffer));
-    return (len > 0 ? ByteStream{_buffer, len} : default_value);
+    return (len > 0 ? ByteStream{_buffer, len, default_value.format} : default_value);
   }
 
   void giveMutex() { xSemaphoreGive(_mutex); }

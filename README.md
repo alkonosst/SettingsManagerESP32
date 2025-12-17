@@ -301,7 +301,17 @@ void setup() {
 
 // ByteStream is a special type. It is used to store raw binary data in the NVS.
 const uint8_t byte_default_value[] = {'n', 'v', 's'};
-const NVS::ByteStream byte_stream_default = {byte_default_value, 3}; // Must be const!
+// ByteStream constructor: (data, size, format)
+// - The data pointer must point to a valid memory location.
+// - Size must match the actual size of the data array.
+// - Format:
+//    - Format can be: Hex, Base64, JSONObject, JSONArray
+//    - The default ByteStream's format is the one that matters. So, when calling getValue(), the format
+//      member will be the one defined in the default value.
+//    - Don't change the value's data format from the one defined in the default value,
+//      because you may never know the actual content of the stored data in NVS based on the format.
+// - IMPORTANT: The ByteStream default value must be declared as const!
+const NVS::ByteStream byte_stream_default = {byte_default_value, 3, NVS::ByteStream::Format::Hex}; // Must be const!
 
 #define BYTE_STREAMS(X)                                      \
   X(ByteStream1, "byte stream 1", byte_stream_default, true) \
@@ -340,6 +350,45 @@ strings.giveMutex();
 This is because the library creates a static buffer to store the value, and this buffer is shared
 between all settings of the same object to save space in the RAM. This is not a problem for the
 other types.
+
+The `ByteStream` type has an special member called `format`, which indicates the format of the data
+stored in the byte stream. It is optional to use. The available formats are:
+
+- `Hex`: Data is stored as hexadecimal string.
+- `Base64`: Data is stored as Base64 encoded string.
+- `JSONObject`: Data is stored as JSON object string.
+- `JSONArray`: Data is stored as JSON array string.
+
+When creating a `ByteStream` setting, you must define the format in the default value. When reading
+the value using `getValue()`, the format will be the one defined in the default value. You can use
+this format to know how to interpret the data stored in the byte stream.
+
+```cpp
+const uint8_t my_data[] = {0xDE, 0xAD, 0xBE, 0xEF};
+
+const NVS::ByteStream bs_default = {
+  my_data,
+  sizeof(my_data),
+  NVS::ByteStream::Format::Hex
+};
+
+#define BYTESTREAMS(X)                          \
+  X(BS_1, "My ByteStream 1", bs_default, false) \
+```
+
+> [!IMPORTANT]
+> The `ByteStream` default value must be declared as `const`, because the library uses it as a constant
+> reference to know the size and format of the data. If not declared as `const`, the compiler may throw
+> an error. Example:
+>
+> ```cpp
+> const NVS::ByteStream bs_default = { ... }; // Correct
+> NVS::ByteStream bs_default = { ... };       // Incorrect
+> ```
+>
+> Also, if you are using the `Format` member, make sure that the data you are storing in the
+> ByteStream matches the format defined in the default value. Otherwise, you may get unexpected results
+> when reading the value.
 
 ### Migration from v2.x to v3.x
 

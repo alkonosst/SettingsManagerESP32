@@ -18,14 +18,37 @@
 // Example of Bytestream values with string data (size includes null terminator)
 
 // Default values
-const NVS::ByteStream bs1_default = {reinterpret_cast<const uint8_t*>("111"), 4};
-const NVS::ByteStream bs2_default = {reinterpret_cast<const uint8_t*>("222"), 4};
-const NVS::ByteStream bs3_default = {reinterpret_cast<const uint8_t*>("333"), 4};
+// - Format options: Hex, Base64, JSONObject, JSONArray
+// - Each one has a null terminator included in the size for easier printing
+const uint8_t bs1_default_data[]  = {0x31, 0x31, 0x31, 0x00}; // "111"
+const NVS::ByteStream bs1_default = {
+  bs1_default_data, sizeof(bs1_default_data), NVS::ByteStream::Format::Hex};
+
+const char bs2_default_data[]     = "MTEx"; // "111" in Base64
+const NVS::ByteStream bs2_default = {reinterpret_cast<const uint8_t*>(bs2_default_data),
+                                     sizeof(bs2_default_data),
+                                     NVS::ByteStream::Format::Base64};
+
+const char bs3_default_data[]     = "{\"value\": 111}";
+const NVS::ByteStream bs3_default = {reinterpret_cast<const uint8_t*>(bs3_default_data),
+                                     sizeof(bs3_default_data),
+                                     NVS::ByteStream::Format::JSONObject};
 
 // New values
-const NVS::ByteStream bs1_new = {reinterpret_cast<const uint8_t*>("aaaaaa"), 7};
-const NVS::ByteStream bs2_new = {reinterpret_cast<const uint8_t*>("bbbbbb"), 7};
-const NVS::ByteStream bs3_new = {reinterpret_cast<const uint8_t*>("cccccc"), 7};
+const uint8_t bs1_new_data[]  = {0x32, 0x32, 0x32, 0x00}; // "222"
+const NVS::ByteStream bs1_new = {reinterpret_cast<const uint8_t*>(bs1_new_data),
+                                 sizeof(bs1_new_data),
+                                 NVS::ByteStream::Format::Hex};
+
+const char bs2_new_data[]     = "MjIy"; // "222" in Base64
+const NVS::ByteStream bs2_new = {reinterpret_cast<const uint8_t*>(bs2_new_data),
+                                 sizeof(bs2_new_data),
+                                 NVS::ByteStream::Format::Base64};
+
+const char bs3_new_data[]     = "{\"value\": 222}";
+const NVS::ByteStream bs3_new = {reinterpret_cast<const uint8_t*>(bs3_new_data),
+                                 sizeof(bs3_new_data),
+                                 NVS::ByteStream::Format::JSONObject};
 
 const NVS::ByteStream* bs_new_values[] = {&bs1_new, &bs2_new, &bs3_new};
 
@@ -38,6 +61,16 @@ const NVS::ByteStream* bs_new_values[] = {&bs1_new, &bs2_new, &bs3_new};
 enum class ByteStreams : uint8_t { BYTESTREAMS(SETTINGS_EXPAND_ENUM_CLASS) };
 NVS::Settings<NVS::ByteStream, ByteStreams, SETTINGS_COUNT(BYTESTREAMS)> bs = {
   BYTESTREAMS(SETTINGS_EXPAND_SETTINGS)};
+
+const char* bytestreamFormatToString(NVS::ByteStream::Format format) {
+  switch (format) {
+    case NVS::ByteStream::Format::Hex: return "Hex";
+    case NVS::ByteStream::Format::Base64: return "Base64";
+    case NVS::ByteStream::Format::JSONObject: return "JsonObject";
+    case NVS::ByteStream::Format::JSONArray: return "JsonArray";
+    default: return "Unknown";
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -64,23 +97,24 @@ void loop() {
     {
       Serial.println("List of settings:");
 
-      Serial.printf("Key\t\tHint\t\tDefVal\t\tValue\n");
-
       for (size_t i = 0; i < bs.getSize(); i++) {
-        Serial.printf("%s\t\t", bs.getKey(static_cast<ByteStreams>(i)));
-        Serial.printf("%s\t\t", bs.getHint(static_cast<ByteStreams>(i)));
+        Serial.println("-------------------------");
+        Serial.printf("ByteStream %u:\n", i + 1);
+        Serial.printf("- Key: %s\n", bs.getKey(static_cast<ByteStreams>(i)));
+        Serial.printf("- Hint: %s\n", bs.getHint(static_cast<ByteStreams>(i)));
 
         NVS::ByteStream def_value = bs.getDefaultValue(static_cast<ByteStreams>(i));
-        Serial.printf("%s (%u)\t\t", def_value.data, def_value.size);
+        Serial.printf("- Format: %s\n", bytestreamFormatToString(def_value.format));
+        Serial.printf("- Default value: %s (%u)\n", def_value.data, def_value.size);
 
         NVS::ByteStream value = bs.getValue(static_cast<ByteStreams>(i));
-        Serial.printf("%s (%u)\n", value.data, value.size);
+        Serial.printf("- Current value: %s (%u)\n", value.data, value.size);
 
         // IMPORTANT: release the mutex when done using a value
         bs.giveMutex();
       }
 
-      Serial.println();
+      Serial.println("-------------------------");
     } break;
 
     // Set new values for each setting
@@ -113,6 +147,39 @@ void loop() {
       } else {
         Serial.printf("failed with %u errors!\n\n", errors);
       }
+    } break;
+
+    // Print Bytestream 1 (hex format)
+    case '1':
+    {
+      NVS::ByteStream value = bs.getValue(ByteStreams::BS_1);
+      Serial.printf("Bytestream 1 (%s): %s (%u)\n\n",
+                    bytestreamFormatToString(value.format),
+                    value.data,
+                    value.size);
+      bs.giveMutex();
+    } break;
+
+    // Print Bytestream 2 (base64 format)
+    case '2':
+    {
+      NVS::ByteStream value = bs.getValue(ByteStreams::BS_2);
+      Serial.printf("Bytestream 2 (%s): %s (%u)\n\n",
+                    bytestreamFormatToString(value.format),
+                    value.data,
+                    value.size);
+      bs.giveMutex();
+    } break;
+
+    // Print Bytestream 3 (JSON object format)
+    case '3':
+    {
+      NVS::ByteStream value = bs.getValue(ByteStreams::BS_3);
+      Serial.printf("Bytestream 3 (%s): %s (%u)\n\n",
+                    bytestreamFormatToString(value.format),
+                    value.data,
+                    value.size);
+      bs.giveMutex();
     } break;
   }
 }
