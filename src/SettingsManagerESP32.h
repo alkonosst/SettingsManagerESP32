@@ -220,15 +220,15 @@ class ISettings {
 
   /**
    * @brief Get the Type of the object.
-   * @return const Type Enum
+   * @return Type Enum
    */
-  virtual const Type getType() = 0;
+  virtual Type getType() = 0;
 
   /**
    * @brief Get the size of the setting object.
-   * @return const size_t Number of settings
+   * @return size_t Number of settings
    */
-  virtual const size_t getSize() = 0;
+  virtual size_t getSize() = 0;
 
   /**
    * @brief Get a key string.
@@ -366,9 +366,9 @@ class Settings : public ISettings {
     std::copy_n(list.begin(), N, _list.begin());
   }
 
-  const Type getType() override { return Internal::PolicyTrait<T>::enum_type; }
+  Type getType() override { return Internal::PolicyTrait<T>::enum_type; }
 
-  const size_t getSize() override { return _list.size(); }
+  size_t getSize() override { return _list.size(); }
 
   /**
    * @brief Get a key string.
