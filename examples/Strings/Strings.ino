@@ -76,7 +76,7 @@ void loop() {
         static char buffer[SETTINGS_STRING_BUFFER_SIZE];
         uint32_t new_value = random(0, 100);
 
-        snprintf(buffer, sizeof(buffer), "str %u", new_value);
+        snprintf(buffer, sizeof(buffer), "str %" PRIu32, new_value);
 
         if (strings.setValue(static_cast<Strings>(i), buffer)) {
           Serial.printf("- Set %s to %s\n", key, buffer);

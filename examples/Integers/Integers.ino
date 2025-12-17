@@ -54,8 +54,8 @@ void loop() {
       for (size_t i = 0; i < uints.getSize(); i++) {
         Serial.printf("%s\t\t", uints.getKey(static_cast<UInts>(i)));
         Serial.printf("%s\t\t", uints.getHint(static_cast<UInts>(i)));
-        Serial.printf("%u\t\t", uints.getDefaultValue(static_cast<UInts>(i)));
-        Serial.printf("%u\n", uints.getValue(static_cast<UInts>(i)));
+        Serial.printf("%" PRIu32 "\t\t", uints.getDefaultValue(static_cast<UInts>(i)));
+        Serial.printf("%" PRIu32 "\n", uints.getValue(static_cast<UInts>(i)));
       }
 
       Serial.println();
@@ -71,7 +71,7 @@ void loop() {
         uint32_t new_value = random(0, 100);
 
         if (uints.setValue(static_cast<UInts>(i), new_value)) {
-          Serial.printf("- Set %s to %u\n", key, new_value + i);
+          Serial.printf("- Set %s to %" PRIu32 "\n", key, new_value + i);
         } else {
           Serial.printf("- Failed to set value for %s\n", key);
         }
