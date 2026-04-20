@@ -5,12 +5,12 @@
  */
 
 /** Explanation of the example:
- * - Three settings are created, all with formattable values.
+ * - Three boolean settings are created, all with formattable values.
  * - The loop function reads the serial input and performs the following actions:
  *  - '.' restarts the ESP32.
  *  - 'p' prints all settings, including key, hint, default value, and current value.
- *  - 's' sets new values for each setting.
- *  - '1' sets a new value only for the first setting.
+ *  - 's' sets each setting to a random boolean value.
+ *  - '1' toggles the first setting.
  *  - 'f' formats all settings to their default values.
  */
 
@@ -18,18 +18,17 @@
 
 #include "SettingsManagerESP32.h"
 
-// Integers, all formattable
-#define UINTS(X)               \
-  X(UInt_1, "UInt 1", 1, true) \
-  X(UInt_2, "UInt 2", 2, true) \
-  X(UInt_3, "UInt 3", 3, true)
+// Booleans, all formattable
+#define BOOLS(X)                   \
+  X(Flag_1, "Flag 1", false, true) \
+  X(Flag_2, "Flag 2", true, true)  \
+  X(Flag_3, "Flag 3", false, true)
 
-// Enum for integer settings
-enum class UInts : uint8_t { UINTS(SETTINGS_EXPAND_ENUM_CLASS) };
+// Enum for boolean settings
+enum class Bools : uint8_t { BOOLS(SETTINGS_EXPAND_ENUM_CLASS) };
 
-// Settings object for integers, namespace "esp32"
-NVS::Settings<uint32_t, UInts, SETTINGS_COUNT(UINTS)> uints("esp32",
-                                                            {UINTS(SETTINGS_EXPAND_SETTINGS)});
+// Settings object for booleans, namespace "esp32"
+NVS::Settings<bool, Bools, SETTINGS_COUNT(BOOLS)> bools("esp32", {BOOLS(SETTINGS_EXPAND_SETTINGS)});
 
 void setup() {
   Serial.begin(115200);
@@ -43,7 +42,7 @@ void setup() {
       delay(1000);
   }
 
-  if (!uints.begin()) {
+  if (!bools.begin()) {
     Serial.println("Failed to open settings handle!");
     while (true)
       delay(1000);
@@ -72,18 +71,18 @@ void loop() {
       Serial.println("List of settings:");
       Serial.printf("%-10s%-10s%-10s%-10s\n", "Key", "Hint", "Default", "Value");
 
-      for (size_t i = 0; i < uints.getSize(); i++) {
-        Serial.printf("%-10s", uints.getKey(static_cast<UInts>(i)));
-        Serial.printf("%-10s", uints.getHint(static_cast<UInts>(i)));
-        Serial.printf("%-10" PRIu32, uints.getDefaultValue(static_cast<UInts>(i)));
+      for (size_t i = 0; i < bools.getSize(); i++) {
+        Serial.printf("%-10s", bools.getKey(static_cast<Bools>(i)));
+        Serial.printf("%-10s", bools.getHint(static_cast<Bools>(i)));
+        Serial.printf("%-10s", bools.getDefaultValue(static_cast<Bools>(i)) ? "true" : "false");
 
-        uint32_t val;
-        if (!uints.getValue(static_cast<UInts>(i), val)) {
+        bool val;
+        if (!bools.getValue(static_cast<Bools>(i), val)) {
           Serial.printf("%-10s\n", "Error!");
           continue;
         }
 
-        Serial.printf("%-10" PRIu32 "\n", val);
+        Serial.printf("%-10s\n", val ? "true" : "false");
       }
 
       Serial.println();
@@ -94,12 +93,12 @@ void loop() {
     {
       Serial.println("Setting new values...");
 
-      for (size_t i = 0; i < uints.getSize(); i++) {
-        const char* key    = uints.getKey(static_cast<UInts>(i));
-        uint32_t new_value = random(0, 100);
+      for (size_t i = 0; i < bools.getSize(); i++) {
+        const char* key = bools.getKey(static_cast<Bools>(i));
+        bool new_value  = random(0, 2);
 
-        if (uints.setValue(static_cast<UInts>(i), new_value)) {
-          Serial.printf("- Set %s to %" PRIu32 "\n", key, new_value);
+        if (bools.setValue(static_cast<Bools>(i), new_value)) {
+          Serial.printf("- Set %s to %s\n", key, new_value ? "true" : "false");
         } else {
           Serial.printf("- Failed to set value for %s\n", key);
         }
@@ -111,15 +110,20 @@ void loop() {
     // Modify only the first setting, leaving the others unchanged
     case '1':
     {
-      Serial.println("Modifying first setting...");
+      Serial.println("Toggling first setting...");
 
-      const char* key    = uints.getKey(UInts::UInt_1);
-      uint32_t new_value = random(0, 100);
+      bool current;
+      if (!bools.getValue(Bools::Flag_1, current)) {
+        Serial.println("- Failed to read Flag_1");
+        break;
+      }
 
-      if (uints.setValue(UInts::UInt_1, new_value)) {
-        Serial.printf("- Set %s to %" PRIu32 "\n", key, new_value);
+      bool toggled = !current;
+      if (bools.setValue(Bools::Flag_1, toggled)) {
+        Serial.printf(
+          "- Flag_1: %s -> %s\n", current ? "true" : "false", toggled ? "true" : "false");
       } else {
-        Serial.printf("- Failed to set value for %s\n", key);
+        Serial.println("- Failed to set Flag_1");
       }
 
       Serial.println();
@@ -130,7 +134,7 @@ void loop() {
     {
       Serial.print("Formatting settings... ");
 
-      uint8_t errors = uints.formatAll();
+      uint8_t errors = bools.formatAll();
 
       if (errors == 0) {
         Serial.println("done.\n");
