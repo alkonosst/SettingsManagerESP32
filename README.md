@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  <b>Manage your ESP32 Preferences easily!</b>
+  <b>Manage your ESP32 settings with ease!</b>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <br><br>
   <a href="https://ko-fi.com/alkonosst">
     <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi">
-    </a>
+  </a>
 </p>
 
 ---
@@ -34,32 +34,36 @@
     - [What is inside the library](#what-is-inside-the-library)
   - [Constructors and initialization](#constructors-and-initialization)
     - [Step 1: Defining your settings in a macro](#step-1-defining-your-settings-in-a-macro)
-    - [Step 2: Creating `enum class` and `settings list` (manual)](#step-2-creating-enum-class-and-settings-list-manual)
-    - [Step 2 alternative: Creating `enum class` and `settings list` (automatic)](#step-2-alternative-creating-enum-class-and-settings-list-automatic)
-    - [Example](#example)
+    - [Step 2: Creating `enum class` and `Settings` object (manual)](#step-2-creating-enum-class-and-settings-object-manual)
+    - [Step 2 alternative: Creating `enum class` and `Settings` object (automatic)](#step-2-alternative-creating-enum-class-and-settings-object-automatic)
+    - [Initialization](#initialization)
+    - [Full example](#full-example)
+  - [Settings API](#settings-api)
+    - [Reading and writing values](#reading-and-writing-values)
+    - [Formatting](#formatting)
+    - [Callbacks](#callbacks)
+    - [Type-erased interface (`ISettings`)](#type-erased-interface-isettings)
   - [Setting types](#setting-types)
+  - [Utility functions](#utility-functions)
   - [Important notes](#important-notes)
-    - [Special types](#special-types)
-    - [Migration from v2.x to v3.x](#migration-from-v2x-to-v3x)
+    - [String and ByteStream types](#string-and-bytestream-types)
+    - [Migration from v3 to v4](#migration-from-v3-to-v4)
 - [License](#license)
 
 ---
 
 # Description
 
-Manage your ESP32 device preferences effortlessly with the **SettingsManagerESP32** library. This
-powerful yet user-friendly library abstracts away the complexities of dealing with ESP32
-Non-Volatile Storage, providing you with a seamless and intuitive interface to store and retrieve
-your device settings.
+Manage your ESP32 device settings effortlessly with the **SettingsManagerESP32** library. Built on top of the ESP-IDF NVS API, it provides a clean and type-safe interface to store and retrieve your device settings in non-volatile storage.
 
-Some of the core features are:
+Core features:
 
-- Single place to manage a list of settings in your code.
-- Capable of having a **Key**, **Description Text** (_hint_) and a **Default Value** for each setting. All
-  these values are stored in the stack, no use of the heap.
-- No need to use a key string to access a setting (_default case in the Preferences library_).
-- Use of automatically created enum class to index your settings.
-- Perfect use with a IDE with autocompletion, like VSCode. See example below.
+- Single place to define a group of settings using [X-Macros](https://en.wikipedia.org/wiki/X_macro).
+- Each setting has a **Key**, a **Hint** (description text), and a **Default Value**. All metadata lives in flash - no heap usage.
+- Access settings via a type-safe `enum class` instead of raw key strings.
+- Each `Settings` object owns its own NVS namespace handle, allowing multiple independent groups or shared namespaces.
+- Per-setting and global change callbacks.
+- Full autocompletion support in IDEs like VS Code.
 
 ![floats](.img/floats.png)
 ![strings](.img/strings.png)
@@ -68,7 +72,7 @@ Some of the core features are:
 
 ## Adding library to Arduino IDE
 
-Search for the library in the Library Manager.
+Search for **SettingsManagerESP32** in the Library Manager.
 
 ## Adding library to platformio.ini (PlatformIO)
 
@@ -77,345 +81,434 @@ Search for the library in the Library Manager.
 lib_deps =
   https://github.com/alkonosst/SettingsManagerESP32.git
 
-; Release vx.y.z (using an exact version is recommended)
+; Specific release (recommended for production)
 lib_deps =
-  https://github.com/alkonosst/SettingsManagerESP32.git#v2.0.0
+  https://github.com/alkonosst/SettingsManagerESP32.git#v4.0.0
 ```
 
 ## Using the library
 
 ### Including the library
 
-First, include the library in your file:
-
 ```cpp
 #include "SettingsManagerESP32.h"
-```
-
-By default, there are two definitions which controls the maximum size for **strings** and
-**byte-streams**, which are `SETTINGS_STRING_BUFFER_SIZE` and `SETTINGS_BYTE_STREAM_BUFFER_SIZE`
-respectively, **both set to 32 bytes**. If you need to change these values, you can do it in your code
-before including the library:
-
-```cpp
-#define SETTINGS_STRING_BUFFER_SIZE 64
-#define SETTINGS_BYTE_STREAM_BUFFER_SIZE 64
-#include "SettingsManagerESP32.h"
-```
-
-Or if using PlatformIO, you can add these definitions in your `platformio.ini` file:
-
-```ini
-build_flags =
-  -D SETTINGS_STRING_BUFFER_SIZE=64
-  -D SETTINGS_BYTE_STREAM_BUFFER_SIZE=64
 ```
 
 ### What is inside the library
 
-The library creates a ESP32 `Preferences` object to manage the non-volatile storage named `nvs`. You can use
-this object, if needed, to access the NVS directly:
+All classes and types live in the `NVS` namespace. The main pieces are:
+
+**Classes:**
+
+- `NVS::Settings<T, ENUM, N>` - typed container for a group of NVS settings under a single namespace.
+  - `T` - value type (`bool`, `uint32_t`, `int32_t`, `float`, `double`, `NVS::Str`, `NVS::ByteStream`).
+  - `ENUM` - enum class used to index settings.
+  - `N` - number of settings (use `SETTINGS_COUNT(your_macro)`).
+- `NVS::ISettings` - type-erased interface. Useful for storing heterogeneous `Settings` objects in an array.
+
+**Types:**
+
+| Type                      | Description                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `NVS::Str`                | Mutable string buffer for `getValue()`. Caller allocates the buffer.                                                    |
+| `NVS::StrView`            | Read-only string view. Used for default values and `setValue()`. Implicitly constructed from `const char*`.             |
+| `NVS::ByteStream`         | Mutable byte buffer for `getValue()`. Caller allocates the buffer.                                                      |
+| `NVS::ByteStreamView`     | Read-only byte view. Used for default values and `setValue()`.                                                          |
+| `NVS::ByteStream::Format` | Metadata enum: `Hex`, `Base64`, `JSONObject`, `JSONArray`. Not persisted in NVS.                                        |
+| `NVS::Type`               | Identifies the value type of a `Settings` object: `Bool`, `UInt32`, `Int32`, `Float`, `Double`, `String`, `ByteStream`. |
+
+**NVS partition lifecycle functions:**
 
 ```cpp
-Preferences nvs;
+NVS::init();   // Initialize the default NVS flash partition. Call once in setup() before any begin().
+NVS::deinit(); // Deinitialize the partition.
+NVS::erase();  // Erase all data in the partition (requires init() again afterwards).
 ```
 
-All the relevant classes and types are inside the `NVS` namespace. The available classes are:
-
-- `Settings<T, ENUM, N>`: Main class to manage settings.
-  - `T` is the type of the setting.
-  - `ENUM` is the enum class to index the settings. The available types are: `bool`, `uint32_t`, `int32_t`, `float`,
-    `double`, `const char*` and `ByteStream`.
-  - `N` is the number of settings in the list. This is automatically calculated by the library using
-    the macro `SETTINGS_COUNT(your_settings_macro)`.
-- `ISettings`: Interface class to manage settings via pointer. You can use this class to create a
-  pointer to a particular `Settings` object.
-
-And the available types are:
-
-- `ByteStream`: Class to manage byte streams. It is used to store raw binary data in the NVS.
-- `Type`: Enum class to define the type of the setting object, which can be `Bool`, `UInt32`, `Int32`,
-  `Float`, `Double`, `String` or `ByteStream`.
+All three accept an optional `const char* partition_name` to target a custom partition.
 
 ## Constructors and initialization
 
-This library makes use of [X-Macros](https://en.wikipedia.org/wiki/X_macro) to make the code
-maintainable and scalable. You can easily add, edit or remove a setting in the same place.
+The library uses [X-Macros](https://en.wikipedia.org/wiki/X_macro) to keep all settings in one place.
 
 ### Step 1: Defining your settings in a macro
 
-In order to create a new group of settings, you need to define a macro with the following structure:
-
 ```cpp
-#define FLOATS(X) \
-  X(SenThr,   "Sensor Voltage Threshold", 3.14,   false) \
-  X(AdcSlope, "ADC Slope Factor",         1.2345, true)  \
-  X(Another,  "Another setting",          0.0,    false)
+#define FLOATS(X)                                \
+  X(SenThr,   "Sensor Threshold", 3.14,   false) \
+  X(AdcSlope, "ADC Slope",        1.2345, true)  \
+  X(Offset,   "ADC Offset",       0.0,    true)
 ```
 
-Structure of the macro:
+Each row defines one setting:
 
-|      | First (key)                                                                                    | Second (hint)                           | Third (default value)                                         | Fourth (formattable)       |     |
-| ---- | ---------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------- | -------------------------- | --- |
-| `X(` | Enum class member, also used as a key (**no more than 15 characters** and **no whitespaces**). | Text to describe what the setting does. | Default value. In the example above, a value of type `float`. | Setting formattable or not | `)` |
+| Field         | Description                                                                           |
+| ------------- | ------------------------------------------------------------------------------------- |
+| Name          | Becomes the enum enumerator and the NVS key string. Max 15 characters, no whitespace. |
+| Hint          | Human-readable description.                                                           |
+| Default value | Must match the type of the `Settings` object.                                         |
+| Formattable   | `true` if `formatAll()` should reset this setting to its default.                     |
 
-Each new row is a new setting. All settings in the same macro must be of the same
-type. In the example above all settings are `float`.
+All settings in the same macro must be of the same type.
 
-### Step 2: Creating `enum class` and `settings list` (manual)
-
-Once you have defined your settings, you need to create an `enum class` and a `settings list` object. You must use the
-macros `SETTINGS_EXPAND_ENUM_CLASS` and `SETTINGS_EXPAND_SETTINGS` as argument to your X-Macro
-defined previously, as shown below:
+### Step 2: Creating `enum class` and `Settings` object (manual)
 
 ```cpp
 enum class MyFloats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+NVS::Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats("esp32", {FLOATS(SETTINGS_EXPAND_SETTINGS)});
 ```
 
-This automatically will expand to this:
+This expands to:
 
 ```cpp
-enum class MyFloats : uint8_t { SenThr, AdcSlope, Another };
-NVS::Settings<float, MyFloats, 3> my_float = {
-  {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
-  {"AdcSlope", "ADC Slope Factor",         1.2345, true},
-  {"Another",  "Another setting",          0.0   , true}
-};
+enum class MyFloats : uint8_t { SenThr, AdcSlope, Offset };
+NVS::Settings<float, MyFloats, 3> my_floats("esp32", {
+  {"SenThr",   "Sensor Threshold", 3.14,   false},
+  {"AdcSlope", "ADC Slope",        1.2345, true},
+  {"Offset",   "ADC Offset",       0.0,    true},
+});
 ```
 
-Now you can use the `my_floats` object and the `MyFloats` enum class.
-
-### Step 2 alternative: Creating `enum class` and `settings list` (automatic)
-
-After your macro with settings is defined, you can use the corresponding `SETTINGS_CREATE_XXX`
-macro (_refer to [Setting types](#setting-types) to see all macros_).
-This will create a automatically a `enum class` and a `setting` object to use later.
+### Step 2 alternative: Creating `enum class` and `Settings` object (automatic)
 
 ```cpp
-SETTINGS_CREATE_FLOATS(Floats, FLOATS)
+SETTINGS_CREATE_FLOATS(Floats, "esp32", FLOATS)
 ```
 
-|                           | First                                                             | Second                                    |     |
-| ------------------------- | ----------------------------------------------------------------- | ----------------------------------------- | --- |
-| `SETTINGS_CREATE_FLOATS(` | A name to give to the `enum class` and suffix to `settings list`. | X-Macro with settings defined previously. | `)` |
+| Parameter | Description                                         |
+| --------- | --------------------------------------------------- |
+| `Floats`  | Name for the enum class and the `st_Floats` object. |
+| `"esp32"` | NVS namespace name (max 15 characters).             |
+| `FLOATS`  | X-macro with the settings list.                     |
 
-The compiler will expand the macro to this:
+This creates `enum class Floats` and `NVS::Settings<float, Floats, N> st_Floats(...)`.
+
+### Initialization
+
+Before any read or write, initialize the NVS partition and open each `Settings` handle:
 
 ```cpp
-enum class Floats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-NVS::Settings<float, Floats, SETTINGS_COUNT(FLOATS)> st_Floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+void setup() {
+  if (!NVS::init()) {
+    // Handle error
+  }
+
+  if (!st_Floats.begin()) {
+    // Handle error
+  }
+}
 ```
 
-And finally it will expand to this:
+### Full example
 
 ```cpp
-enum class Floats : uint8_t { SenThr, AdcSlope, Another };
-NVS::Settings<float, Floats, 3> st_Floats = {
-  {"SenThr",   "Sensor Voltage Threshold", 3.14  , true},
-  {"AdcSlope", "ADC Slope Factor",         1.2345, true},
-  {"Another",  "Another setting",          0.0   , true}
-};
-```
+#include "SettingsManagerESP32.h"
 
-Now you can use the `st_Floats` object and the `Floats` enum class.
-
-### Example
-
-The following code shows a general example of how to use the library. For more examples, refer to
-the `examples` folder.
-
-```cpp
-// Change the buffer size
-#define SETTINGS_STRING_BUFFER_SIZE 64
-#define SETTINGS_BYTE_STREAM_BUFFER_SIZE 64
-#include "SettingsManagerESP32.h" // Include library
-
-// Step 1: Define the X-Macro.
-// - The macro's name can be whatever you prefer. In this case "UINT32S", because we will store a
-// group of settings of type uint32_t.
 #define UINT32S(X)              \
   X(UInt1, "uint32 1", 1, true) \
   X(UInt2, "uint32 2", 2, true) \
   X(UInt3, "uint32 3", 3, true)
 
-// The argument "X" can be named as you wish, but remember to use it in every row for each new setting.
-#define FLOATS(setting)                 \
-  setting(Float1, "float 1", 1.1, true) \
-  setting(Float2, "float 2", 2.2, true) \
-  setting(Float3, "float 3", 3.3, true)
+#define FLOATS(X)                 \
+  X(Float1, "float 1", 1.1, true) \
+  X(Float2, "float 2", 2.2, true) \
+  X(Float3, "float 3", 3.3, true)
 
-// Step 2: Creating enum class and settings list manually
-enum class Floats { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
-Settings<float, Floats, SETTINGS_COUNT(FLOATS)> float_settings = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+// Manual creation
+enum class Floats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
+NVS::Settings<float, Floats, SETTINGS_COUNT(FLOATS)> float_settings("esp32", {FLOATS(SETTINGS_EXPAND_SETTINGS)});
 
-// Step 2 alternative: Creating enum class and settings list automatically
-SETTINGS_CREATE_UINT32S(UInt32s, UINT32S)
+// Automatic creation
+SETTINGS_CREATE_UINT32S(UInt32s, "esp32", UINT32S)
 
 void setup() {
-  // Initialize NVS with namespace "esp32"
-  nvs.begin("esp32");
+  if (!NVS::init()) { /* handle error */ }
+  if (!float_settings.begin()) { /* handle error */ }
+  if (!st_UInt32s.begin()) { /* handle error */ }
 
-  /* Now you could access to the settings methods */
+  // Get the key string: "UInt1"
+  const char* key = st_UInt32s.getKey(UInt32s::UInt1);
 
-  // You should obtain "UInt1"
-  const char* uint32_1_key = UInt32s_list.getKey(UInt32s::UInt1);
+  // Write a value
+  float_settings.setValue(Floats::Float1, 9.99f);
 
-  // You should obtain "Float1"
-  const char* float_1_key  = float_settings.getKey(Floats::Float1);
+  // Read a value
+  float val;
+  if (float_settings.getValue(Floats::Float1, val)) {
+    // val == 9.99f
+  }
 }
+```
+
+## Settings API
+
+### Reading and writing values
+
+```cpp
+// Write
+settings.setValue(MyEnum::Key, value);
+
+// Read - returns true if the key exists in NVS, false if not yet saved
+MyType val;
+bool found = settings.getValue(MyEnum::Key, val);
+
+// Get default value
+auto def = settings.getDefaultValue(MyEnum::Key);
+
+// Get key/hint strings
+const char* key  = settings.getKey(MyEnum::Key);
+const char* hint = settings.getHint(MyEnum::Key);
+```
+
+> [!NOTE]
+> `getValue()` returns `false` when the key has not been saved to NVS yet. In that case, `val` is
+> left **unchanged** - no default value is written to it. Check the return value and fall back to
+> `getDefaultValue()` if needed.
+
+### Formatting
+
+"Formatting" means resetting a setting's NVS value back to its default.
+
+```cpp
+settings.format(MyEnum::Key);        // Reset one setting (respects the formattable flag)
+settings.format(MyEnum::Key, true);  // Reset one setting (ignores the formattable flag)
+settings.formatAll();                // Reset all formattable settings
+settings.formatAll(true);            // Reset all settings regardless of the formattable flag
+```
+
+### Callbacks
+
+Callbacks fire when a value is written via `setValue()` or `format()`.
+
+```cpp
+// Per-setting callback
+// callable_on_format: whether to fire when a format operation writes this setting
+settings.setOnChangeCallback(MyEnum::Key,
+  [](const char* key, MyEnumType setting, MyWriteType value) {
+    // handle change
+  },
+  /*callable_on_format=*/false);
+
+// Global callback (fires for every setting change in this object)
+// The value is passed as const void* - cast to WriteType* before use
+settings.setGlobalOnChangeCallback(
+  [](const char* key, NVS::Type type, size_t index, const void* value) {
+    // handle change
+  },
+  /*callable_on_format=*/true);
+```
+
+For `NVS::Str`, the per-setting callback receives `NVS::StrView`. For `NVS::ByteStream`, it receives `NVS::ByteStreamView`.
+
+### Type-erased interface (`ISettings`)
+
+`NVS::ISettings*` lets you store heterogeneous `Settings` objects in a plain array and operate on them without knowing the value type:
+
+```cpp
+NVS::ISettings* all[] = {&st_Floats, &st_UInt32s, &st_Strings};
+
+for (auto* s : all) {
+  s->begin();
+}
+
+// Access by index
+const char* key = all[0]->getKey(0);
+NVS::Type type  = all[0]->getType();
+
+// Read/write via void*
+float f;
+all[0]->getValuePtr(0, &f, sizeof(f));
+
+float new_val = 1.23f;
+all[0]->setValuePtr(0, &new_val);
 ```
 
 ## Setting types
 
 ```cpp
+// Boolean
 #define BOOLS(X)                     \
   X(Bool1, "boolean 1", false, true) \
-  X(Bool2, "boolean 2", true,  true) \
-  X(Bool3, "boolean 3", false, true)
+  X(Bool2, "boolean 2", true,  true)
 
+SETTINGS_CREATE_BOOLS(Bools, "esp32", BOOLS)
+
+// Unsigned 32-bit integer
 #define UINT32S(X)              \
   X(UInt1, "uint32 1", 1, true) \
-  X(UInt2, "uint32 2", 2, true) \
-  X(UInt3, "uint32 3", 3, true)
+  X(UInt2, "uint32 2", 2, true)
 
-#define INT32S(X)              \
-  X(Int1, "int32 1", -1, true) \
-  X(Int2, "int32 2", -2, true) \
-  X(Int3, "int32 3", -3, true)
+SETTINGS_CREATE_UINT32S(UInt32s, "esp32", UINT32S)
 
+// Signed 32-bit integer
+#define INT32S(X)               \
+  X(Int1, "int32 1", -1, true)  \
+  X(Int2, "int32 2", -2, true)
+
+SETTINGS_CREATE_INT32S(Int32s, "esp32", INT32S)
+
+// Float
 #define FLOATS(X)                 \
   X(Float1, "float 1", 1.1, true) \
-  X(Float2, "float 2", 1.2, true) \
-  X(Float3, "float 3", 1.3, true)
+  X(Float2, "float 2", 2.2, true)
 
-#define DOUBLES(X)                       \
-  X(Double1, "double 1", 1.123456, true) \
-  X(Double2, "double 2", 2.123456, true) \
-  X(Double3, "double 3", 3.123456, true)
+SETTINGS_CREATE_FLOATS(Floats, "esp32", FLOATS)
 
+// Double
+#define DOUBLES(X)                         \
+  X(Double1, "double 1", 1.123456, true)   \
+  X(Double2, "double 2", 2.123456, true)
+
+SETTINGS_CREATE_DOUBLES(Doubles, "esp32", DOUBLES)
+
+// String - default values are StrView, constructed from a string literal
 #define STRINGS(X)                      \
-  X(String1, "string 1", "str 1", true) \
-  X(String2, "string 2", "str 2", true) \
-  X(String3, "string 3", "str 3", true)
+  X(Str1, "string 1", "default 1", true) \
+  X(Str2, "string 2", "default 2", true)
 
-// ByteStream is a special type. It is used to store raw binary data in the NVS.
-const uint8_t byte_default_value[] = {'n', 'v', 's'};
-// ByteStream constructor: (data, size, format)
-// - The data pointer must point to a valid memory location.
-// - Size must match the actual size of the data array.
-// - Format:
-//    - Format can be: Hex, Base64, JSONObject, JSONArray
-//    - The default ByteStream's format is the one that matters. So, when calling getValue(), the format
-//      member will be the one defined in the default value.
-//    - Don't change the value's data format from the one defined in the default value,
-//      because you may never know the actual content of the stored data in NVS based on the format.
-// - IMPORTANT: The ByteStream default value must be declared as const!
-const NVS::ByteStream byte_stream_default = {byte_default_value, 3, NVS::ByteStream::Format::Hex}; // Must be const!
+SETTINGS_CREATE_STRINGS(Strings, "esp32", STRINGS)
 
-#define BYTE_STREAMS(X)                                      \
-  X(ByteStream1, "byte stream 1", byte_stream_default, true) \
-  X(ByteStream2, "byte stream 2", byte_stream_default, true) \
-  X(ByteStream3, "byte stream 3", byte_stream_default, true)
+// ByteStream - default values are ByteStreamView; data must remain valid for the object's lifetime
+const uint8_t bs1_data[]          = {0xDE, 0xAD, 0xBE, 0xEF};
+const NVS::ByteStreamView bs1_def = {bs1_data, sizeof(bs1_data), NVS::ByteStream::Format::Hex};
 
-// Automatic creation
-SETTINGS_CREATE_BOOLS(Bools, BOOLS)       // Boolean
-SETTINGS_CREATE_UINT32S(UInt32s, UINT32S) // Unsigned 32 bit integer
-SETTINGS_CREATE_INT32S(Int32s, INT32S)    // Signed 32 bit integer
-SETTINGS_CREATE_FLOATS(Floats, FLOATS)    // Floating-point
-SETTINGS_CREATE_DOUBLES(Doubles, DOUBLES) // Double precision floating-point
-SETTINGS_CREATE_STRINGS(Strings, STRINGS) // String, array of characters
-SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, BYTE_STREAMS) // Byte stream
+const uint8_t bs2_data[]          = {0x01, 0x02, 0x03, 0x04};
+const NVS::ByteStreamView bs2_def = {bs2_data, sizeof(bs2_data), NVS::ByteStream::Format::Hex};
+
+#define BYTESTREAMS(X)                       \
+  X(BS1, "byte stream 1", bs1_def, true)     \
+  X(BS2, "byte stream 2", bs2_def, true)
+
+SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, "esp32", BYTESTREAMS)
 ```
 
-## Important notes
+## Utility functions
 
-### Special types
-
-The `string` and `byte stream` types are special. When reading a value of these types using
-`getValue()`, **you need to give a mutex using the** `giveMutex()` **method after you are done using the
-value**, like this:
+All utility functions are in the `NVS` namespace.
 
 ```cpp
-// Get the value of the setting
-const char* str_value = strings.getValue(Strings::String_1);
+// Convert a Type enum to a string ("Bool", "Float", "String", etc.)
+const char* NVS::typeToStr(NVS::Type t);
 
-// Do something with the value
-// ...
+// Convert a ByteStream::Format enum to a string ("Hex", "Base64", etc.)
+const char* NVS::formatToStr(NVS::ByteStream::Format f);
 
-// Give the mutex back to the library
-strings.giveMutex();
+// Calculate the buffer size needed to hold the hex string for byte_count bytes
+// Without spaces: "DEADBEEF\0"  → hexStrSize(4)       = 9
+// With spaces:    "DE AD BE EF\0" → hexStrSize(4, true) = 12
+constexpr size_t NVS::hexStrSize(size_t byte_count, bool with_spaces = false);
+
+// Encode a ByteStreamView to a hex string
+// buf must hold at least hexStrSize(bs.size, with_spaces) bytes
+bool NVS::fromHexToStr(NVS::ByteStreamView bs, char* buf, size_t buf_size, bool with_spaces = false);
+
+// Decode a hex string into a ByteStream buffer; out.size is updated on success
+bool NVS::fromStrToHex(const char* hex, NVS::ByteStream& out, bool with_spaces = false);
 ```
-
-This is because the library creates a static buffer to store the value, and this buffer is shared
-between all settings of the same object to save space in the RAM. This is not a problem for the
-other types.
-
-The `ByteStream` type has an special member called `format`, which indicates the format of the data
-stored in the byte stream. It is optional to use. The available formats are:
-
-- `Hex`: Data is stored as hexadecimal string.
-- `Base64`: Data is stored as Base64 encoded string.
-- `JSONObject`: Data is stored as JSON object string.
-- `JSONArray`: Data is stored as JSON array string.
-
-When creating a `ByteStream` setting, you must define the format in the default value. When reading
-the value using `getValue()`, the format will be the one defined in the default value. You can use
-this format to know how to interpret the data stored in the byte stream.
-
-```cpp
-const uint8_t my_data[] = {0xDE, 0xAD, 0xBE, 0xEF};
-
-const NVS::ByteStream bs_default = {
-  my_data,
-  sizeof(my_data),
-  NVS::ByteStream::Format::Hex
-};
-
-#define BYTESTREAMS(X)                          \
-  X(BS_1, "My ByteStream 1", bs_default, false) \
-```
-
-> [!IMPORTANT]
-> The `ByteStream` default value must be declared as `const`, because the library uses it as a constant
-> reference to know the size and format of the data. If not declared as `const`, the compiler may throw
-> an error. Example:
->
-> ```cpp
-> const NVS::ByteStream bs_default = { ... }; // Correct
-> NVS::ByteStream bs_default = { ... };       // Incorrect
-> ```
->
-> Also, if you are using the `Format` member, make sure that the data you are storing in the
-> ByteStream matches the format defined in the default value. Otherwise, you may get unexpected results
-> when reading the value.
-
-### Migration from v2.x to v3.x
-
-There is a breaking change in the library from v2.x to v3.x. The `Settings` now has 3 template
-parameters. The third one is the number of settings in the list:
-
-- Manual creation: You must use the macro `SETTINGS_COUNT()` to get the number of settings in the list.
-- Automatic creation: No changes needed.
 
 Example:
 
 ```cpp
-#define FLOATS(X) \
-  // ...
+uint8_t buf[32];
+NVS::ByteStream value{buf, sizeof(buf)};
+bytestreams.getValue(ByteStreams::BS1, value);
 
-enum class MyFloats : uint8_t { FLOATS(SETTINGS_EXPAND_ENUM_CLASS) };
+char hex_compact[NVS::hexStrSize(32)];
+char hex_spaced[NVS::hexStrSize(32, true)];
+NVS::fromHexToStr(value, hex_compact, sizeof(hex_compact));          // "DEADBEEF"
+NVS::fromHexToStr(value, hex_spaced,  sizeof(hex_spaced),  true);   // "DE AD BE EF"
 
-// Old way (v2.x)
-Settings<float, MyFloats> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
-
-// New way (v3.x)
-Settings<float, MyFloats, SETTINGS_COUNT(FLOATS)> my_floats = { FLOATS(SETTINGS_EXPAND_SETTINGS) };
+// Decode back
+NVS::ByteStream decoded{buf, sizeof(buf)};
+NVS::fromStrToHex("CAFEBABE", decoded);
+NVS::fromStrToHex("CA FE BA BE", decoded, true);
 ```
 
-This change was made because the **Arduino core v3** makes the `std::initializer_list` member of the
-`Settings` class with undefined behavior. Now the library uses a fixed size `std::array` to store
-the settings list, which is much safer.
+## Important notes
+
+### String and ByteStream types
+
+`NVS::Str` and `NVS::ByteStream` require the **caller to provide a buffer** before calling `getValue()`. The library writes directly into that buffer - no heap allocation, no shared internal buffer, and no mutex needed.
+
+**Strings:**
+
+```cpp
+// Default values use StrView - implicitly constructed from const char*
+// No extra declaration needed in the macro
+
+// Reading a string value
+char buf[64];
+NVS::Str out{buf, sizeof(buf)};
+if (strings.getValue(Strings::Str1, out)) {
+  Serial.println(out.data);
+}
+
+// Writing a string value (StrView is constructed implicitly)
+strings.setValue(Strings::Str1, "new value");
+
+// Getting the default value
+NVS::StrView def = strings.getDefaultValue(Strings::Str1);
+Serial.println(def.data);
+```
+
+**ByteStreams:**
+
+```cpp
+// Default values - must declare ByteStreamView (data pointer must outlive the Settings object)
+const uint8_t my_data[]          = {0xDE, 0xAD, 0xBE, 0xEF};
+const NVS::ByteStreamView my_def = {my_data, sizeof(my_data), NVS::ByteStream::Format::Hex};
+
+// Reading a ByteStream value
+uint8_t buf[32];
+NVS::ByteStream out{buf, sizeof(buf)};
+if (bytestreams.getValue(ByteStreams::BS1, out)) {
+  // out.data contains the bytes, out.size is the number of bytes read
+}
+
+// Writing a ByteStream value (ByteStreamView)
+const uint8_t new_data[]             = {0xCA, 0xFE, 0xBA, 0xBE};
+const NVS::ByteStreamView new_value  = {new_data, sizeof(new_data), NVS::ByteStream::Format::Hex};
+bytestreams.setValue(ByteStreams::BS1, new_value);
+
+// Or use the implicit conversion from ByteStream to ByteStreamView
+NVS::ByteStream writable{buf, sizeof(buf)};
+// ... fill buf ...
+bytestreams.setValue(ByteStreams::BS1, writable); // implicit conversion
+```
+
+> [!NOTE]
+> The `ByteStream::Format` field is metadata only - it is **not persisted in NVS**. Use it as a
+> hint to know how to interpret the raw bytes when displaying or transmitting them.
+
+### Migration from v3 to v4
+
+The previous v3 release can be found at [v3.1.0](https://github.com/alkonosst/SettingsManagerESP32/tree/v3.1.0).
+
+v4 is a full rewrite with several breaking changes:
+
+| Area                         | v3                         | v4                                                 |
+| ---------------------------- | -------------------------- | -------------------------------------------------- |
+| NVS backend                  | Arduino `Preferences`      | ESP-IDF `nvs.h`                                    |
+| Global NVS object            | `Preferences nvs` (global) | `NVS::init()` / `NVS::deinit()`                    |
+| Handle lifecycle             | `nvs.begin("ns")` (global) | `settings.begin()` per object                      |
+| Namespace                    | Shared single namespace    | Each `Settings` object owns its namespace          |
+| `SETTINGS_CREATE_XXX` params | `(name, macro)`            | `(name, ns, macro)`                                |
+| String type                  | `const char*`              | `NVS::Str` (read) / `NVS::StrView` (write/default) |
+| ByteStream default           | `const NVS::ByteStream`    | `const NVS::ByteStreamView`                        |
+| `getValue()` on miss         | Wrote default to out-param | Leaves out-param **unchanged**, returns `false`    |
+| Mutex for strings            | `giveMutex()` required     | Not needed - caller provides the buffer            |
+| Shared internal buffer       | Yes (strings/bytestreams)  | No - caller-owned buffers throughout               |
+
+**Minimal migration steps:**
+
+1. Replace `nvs.begin("ns")` with `NVS::init()` + `settings.begin()`.
+2. Add the namespace string as the second parameter to all `SETTINGS_CREATE_XXX` calls.
+3. Change string default values from `"str"` to `NVS::StrView{"str"}` (or keep the string literal - it converts implicitly).
+4. Change ByteStream default values from `const NVS::ByteStream{...}` to `const NVS::ByteStreamView{...}`.
+5. Change string read variables from `const char*` to `NVS::Str{buf, sizeof(buf)}` with a caller-owned buffer.
+6. Change bytestream read variables to `NVS::ByteStream{buf, sizeof(buf)}` with a caller-owned buffer.
+7. Remove all `giveMutex()` calls.
+8. If you relied on `getValue()` filling `out` with the default on a miss, add an explicit fallback.
 
 # License
 
