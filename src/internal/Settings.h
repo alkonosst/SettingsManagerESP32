@@ -187,18 +187,18 @@ class Settings : public ISettings {
    * @param index Index in the list.
    * @param value Destination buffer.
    * @param size Size of the destination buffer in bytes.
-   * @return `const void*` Pointer to the value read from NVS, or pointer to the default value if
-   * not found in NVS or on error.
+   * @retval `true` Value read from NVS or default value.
+   * @retval `false` Handle not open, index out of bounds, or buffer too small.
    */
-  const void* getValuePtrOrDefault(size_t index, void* value, size_t size) override {
-    if (index >= N) return nullptr;
-    if (size < sizeof(T)) return nullptr;
+  bool getValuePtrOrDefault(size_t index, void* value, size_t size) override {
+    if (index >= N) return false;
+    if (size < sizeof(T)) return false;
 
     T& out = *static_cast<T*>(value);
     if (!_policy.getValue(_handle, _list[index].key, out)) {
       _applyDefault(out, _list[index].default_value);
     }
-    return &out;
+    return true;
   }
 
   /**

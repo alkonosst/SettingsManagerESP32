@@ -127,10 +127,10 @@ class ISettings {
    * @param index Index in the list.
    * @param value Destination buffer.
    * @param size Size of the destination buffer in bytes.
-   * @return `const void*` Pointer to the value read from NVS, or pointer to the default value if
-   * not found in NVS or on error.
+   * @retval `true` Value read from NVS or default value.
+   * @retval `false` Handle not open, index out of bounds, or buffer too small.
    */
-  virtual const void* getValuePtrOrDefault(size_t index, void* value, size_t size) = 0;
+  virtual bool getValuePtrOrDefault(size_t index, void* value, size_t size) = 0;
 
   /**
    * @brief Register a callback that fires on every value change across this object.

@@ -330,11 +330,11 @@ NVS::Type type  = all[0]->getType();
 float f;
 all[0]->getValuePtr(0, &f, sizeof(f));
 
-// Read with fallback via void* - returns a non-null pointer to the result (NVS or default)
-// The result is always written into the provided buffer; cast the returned pointer to use it.
-const void* result = all[0]->getValuePtrOrDefault(0, &f, sizeof(f));
-if (result) {
-  float val = *static_cast<const float*>(result);
+// Read with fallback via void* - returns true if successful (NVS value or default written to buffer)
+// Returns false on index out of bounds or buffer too small. The value is always in f on true.
+bool ok = all[0]->getValuePtrOrDefault(0, &f, sizeof(f));
+if (ok) {
+  // f holds the NVS value, or the default if the key was not found
 }
 
 float new_val = 1.23f;

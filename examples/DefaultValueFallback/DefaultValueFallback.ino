@@ -10,8 +10,10 @@
  * - The loop function reads the serial input and performs the following actions:
  *   - '.' restarts the ESP32.
  *   - 'p' prints all settings using getValueOrDefault() (typed API) and getValuePtrOrDefault()
- *         (ISettings pointer API). Since no key exists yet, both return the default value as
- *         fallback. After writing values with 's', they return the actual NVS values instead.
+ *         (ISettings pointer API). getValuePtrOrDefault() returns true on success (NVS or default)
+ *         and writes the value into the caller's buffer. Since no key exists yet, both functions
+ *         return the default value as fallback. After writing values with 's', they return the
+ *         actual NVS values instead.
  *   - 's' sets new values for the first two settings of each type (the third is intentionally
  *         left unwritten to keep the fallback case observable).
  */
@@ -137,12 +139,12 @@ void loop() {
       Serial.printf("%-10s %-12s %-12s\n", "Key", "Default", "Result");
       for (size_t i = 0; i < ptr->getSize(); i++) {
         uint32_t out;
-        const void* result = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
-        if (result) {
+        bool ok = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
+        if (ok) {
           Serial.printf("%-10s %-12" PRIu32 " %-12" PRIu32 "\n",
                         ptr->getKey(i),
                         ptr->getDefaultValueAs<uint32_t>(i),
-                        *static_cast<const uint32_t*>(result));
+                        out);
         }
       }
 
@@ -168,12 +170,12 @@ void loop() {
       Serial.printf("%-10s %-12s %-12s\n", "Key", "Default", "Result");
       for (size_t i = 0; i < ptr->getSize(); i++) {
         NVS::Str out{str_buf, sizeof(str_buf)};
-        const void* result = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
-        if (result) {
+        bool ok = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
+        if (ok) {
           Serial.printf("%-10s %-12s %-12s\n",
                         ptr->getKey(i),
                         ptr->getDefaultValueAs<NVS::StrView>(i).data,
-                        static_cast<const NVS::Str*>(result)->data);
+                        out.data);
         }
       }
 
@@ -208,14 +210,14 @@ void loop() {
       Serial.printf("%-10s %-12s %-12s\n", "Key", "Default", "Result");
       for (size_t i = 0; i < ptr->getSize(); i++) {
         NVS::ByteStream out{bs_buf, sizeof(bs_buf)};
-        const void* result = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
-        if (result) {
+        bool ok = ptr->getValuePtrOrDefault(i, &out, sizeof(out));
+        if (ok) {
           NVS::ByteStreamView def = ptr->getDefaultValueAs<NVS::ByteStreamView>(i);
           NVS::fromHexToStr(def, hex_buf, sizeof(hex_buf));
           char def_str[NVS::hexStrSize(16)];
           memcpy(def_str, hex_buf, sizeof(def_str));
 
-          NVS::fromHexToStr(*static_cast<const NVS::ByteStream*>(result), hex_buf, sizeof(hex_buf));
+          NVS::fromHexToStr(out, hex_buf, sizeof(hex_buf));
           Serial.printf("%-10s %-12s %-12s\n", ptr->getKey(i), def_str, hex_buf);
         }
       }
