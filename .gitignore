@@ -1,3 +1,4 @@
 .pio
 .vscode
 logs
+.github/copilot-instructions.md

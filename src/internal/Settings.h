@@ -182,6 +182,26 @@ class Settings : public ISettings {
   }
 
   /**
+   * @brief Read the current NVS value into a caller-provided buffer via untyped pointer, with
+   * fallback to the default value if the key is not found in NVS.
+   * @param index Index in the list.
+   * @param value Destination buffer.
+   * @param size Size of the destination buffer in bytes.
+   * @return `const void*` Pointer to the value read from NVS, or pointer to the default value if
+   * not found in NVS or on error.
+   */
+  const void* getValuePtrOrDefault(size_t index, void* value, size_t size) override {
+    if (index >= N) return nullptr;
+    if (size < sizeof(T)) return nullptr;
+
+    T& out = *static_cast<T*>(value);
+    if (!_policy.getValue(_handle, _list[index].key, out)) {
+      _applyDefault(out, _list[index].default_value);
+    }
+    return &out;
+  }
+
+  /**
    * @brief Register a callback that fires on every value change across this object.
    * @param callback Callback function.
    * @param callable_on_format Whether to invoke the callback when a format operation writes a
@@ -316,6 +336,25 @@ class Settings : public ISettings {
   }
 
   /**
+   * @brief Read the current value from NVS into `out`, with fallback to the default value if the
+   * key is not found in NVS.
+   *
+   * For NVS::Str: set `out.data` to a caller-owned buffer and `out.size` to its capacity
+   * before calling.
+   *
+   * For NVS::ByteStream: set `out.data` to a caller-owned buffer and `out.size` to its capacity
+   * before calling.
+   *
+   * @return The value read from NVS, or the default value if not found in NVS or on error.
+   */
+  T getValueOrDefault(ENUM setting, T& out) {
+    if (!_policy.getValue(_handle, getKey(static_cast<size_t>(setting)), out)) {
+      _applyDefault(out, _list[static_cast<size_t>(setting)].default_value);
+    }
+    return out;
+  }
+
+  /**
    * @brief Format a single setting to its default value.
    * @param force Ignore the formattable flag and write regardless.
    * @retval `true` Written successfully.
@@ -366,6 +405,22 @@ class Settings : public ISettings {
   Policy _policy;
 
   /* -------------------------------------- Private helpers ------------------------------------- */
+
+  static void _applyDefault(T& out, const WriteType& default_val) {
+    if constexpr (std::is_same_v<T, Str>) {
+      if (out.data && out.max_size > 0 && default_val.data) {
+        strncpy(out.data, default_val.data, out.max_size - 1);
+        out.data[out.max_size - 1] = '\0';
+      }
+    } else if constexpr (std::is_same_v<T, ByteStream>) {
+      if (out.data && default_val.data && out.max_size >= default_val.size) {
+        memcpy(out.data, default_val.data, default_val.size);
+        out.size = default_val.size;
+      }
+    } else {
+      out = default_val;
+    }
+  }
 
   bool setValueImpl(ENUM setting, const WriteType value, bool called_from_format) {
     if (!_is_open) return false;

@@ -122,6 +122,17 @@ class ISettings {
   virtual bool getValuePtr(size_t index, void* value, size_t size) = 0;
 
   /**
+   * @brief Read the current NVS value into a caller-provided buffer via untyped pointer, with
+   * fallback to the default value if the key is not found in NVS.
+   * @param index Index in the list.
+   * @param value Destination buffer.
+   * @param size Size of the destination buffer in bytes.
+   * @return `const void*` Pointer to the value read from NVS, or pointer to the default value if
+   * not found in NVS or on error.
+   */
+  virtual const void* getValuePtrOrDefault(size_t index, void* value, size_t size) = 0;
+
+  /**
    * @brief Register a callback that fires on every value change across this object.
    * @param callback Callback function.
    * @param callable_on_format Whether to invoke the callback when a format operation writes a

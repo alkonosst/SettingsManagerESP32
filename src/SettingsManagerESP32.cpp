@@ -50,10 +50,17 @@ bool deinit(const char* partition_name) {
 bool erase(const char* partition_name) {
   if (!_initialized) return false;
 
+  bool success;
+
   if (partition_name) {
-    return (nvs_flash_erase_partition(partition_name) == ESP_OK);
+    success = (nvs_flash_erase_partition(partition_name) == ESP_OK);
+  } else {
+    success = (nvs_flash_erase() == ESP_OK);
   }
-  return (nvs_flash_erase() == ESP_OK);
+
+  // nvs_flash_erase() implicitly deinitializes the partition
+  if (success) _initialized = false;
+  return success;
 }
 
 const char* typeToStr(const NVS::Type t) {
