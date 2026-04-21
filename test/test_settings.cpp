@@ -181,6 +181,8 @@ void test_bools_setValue();
 void test_bools_getValue();
 void test_bools_hasKey();
 void test_bools_pointer();
+void test_bools_getValueOrDefault();
+void test_bools_getValuePtrOrDefault();
 void test_bools_format();
 void test_bools_forceFormat();
 
@@ -191,6 +193,8 @@ void test_uint32s_setValue();
 void test_uint32s_getValue();
 void test_uint32s_hasKey();
 void test_uint32s_pointer();
+void test_uint32s_getValueOrDefault();
+void test_uint32s_getValuePtrOrDefault();
 void test_uint32s_format();
 void test_uint32s_forceFormat();
 
@@ -201,6 +205,8 @@ void test_int32s_setValue();
 void test_int32s_getValue();
 void test_int32s_hasKey();
 void test_int32s_pointer();
+void test_int32s_getValueOrDefault();
+void test_int32s_getValuePtrOrDefault();
 void test_int32s_format();
 void test_int32s_forceFormat();
 
@@ -211,6 +217,8 @@ void test_floats_setValue();
 void test_floats_getValue();
 void test_floats_hasKey();
 void test_floats_pointer();
+void test_floats_getValueOrDefault();
+void test_floats_getValuePtrOrDefault();
 void test_floats_format();
 void test_floats_forceFormat();
 
@@ -221,6 +229,8 @@ void test_doubles_setValue();
 void test_doubles_getValue();
 void test_doubles_hasKey();
 void test_doubles_pointer();
+void test_doubles_getValueOrDefault();
+void test_doubles_getValuePtrOrDefault();
 void test_doubles_format();
 void test_doubles_forceFormat();
 
@@ -231,6 +241,8 @@ void test_strings_setValue();
 void test_strings_getValue();
 void test_strings_hasKey();
 void test_strings_pointer();
+void test_strings_getValueOrDefault();
+void test_strings_getValuePtrOrDefault();
 void test_strings_format();
 void test_strings_forceFormat();
 
@@ -241,6 +253,8 @@ void test_bytestreams_setValue();
 void test_bytestreams_getValue();
 void test_bytestreams_hasKey();
 void test_bytestreams_pointer();
+void test_bytestreams_getValueOrDefault();
+void test_bytestreams_getValuePtrOrDefault();
 void test_bytestreams_format();
 void test_bytestreams_forceFormat();
 
@@ -280,6 +294,8 @@ void setup() {
   RUN_TEST(test_bools_getValue);
   RUN_TEST(test_bools_hasKey);
   RUN_TEST(test_bools_pointer);
+  RUN_TEST(test_bools_getValueOrDefault);
+  RUN_TEST(test_bools_getValuePtrOrDefault);
   RUN_TEST(test_bools_format);
   RUN_TEST(test_bools_forceFormat);
 
@@ -290,6 +306,8 @@ void setup() {
   RUN_TEST(test_uint32s_getValue);
   RUN_TEST(test_uint32s_hasKey);
   RUN_TEST(test_uint32s_pointer);
+  RUN_TEST(test_uint32s_getValueOrDefault);
+  RUN_TEST(test_uint32s_getValuePtrOrDefault);
   RUN_TEST(test_uint32s_format);
   RUN_TEST(test_uint32s_forceFormat);
 
@@ -300,6 +318,8 @@ void setup() {
   RUN_TEST(test_int32s_getValue);
   RUN_TEST(test_int32s_hasKey);
   RUN_TEST(test_int32s_pointer);
+  RUN_TEST(test_int32s_getValueOrDefault);
+  RUN_TEST(test_int32s_getValuePtrOrDefault);
   RUN_TEST(test_int32s_format);
   RUN_TEST(test_int32s_forceFormat);
 
@@ -310,6 +330,8 @@ void setup() {
   RUN_TEST(test_floats_getValue);
   RUN_TEST(test_floats_hasKey);
   RUN_TEST(test_floats_pointer);
+  RUN_TEST(test_floats_getValueOrDefault);
+  RUN_TEST(test_floats_getValuePtrOrDefault);
   RUN_TEST(test_floats_format);
   RUN_TEST(test_floats_forceFormat);
 
@@ -320,6 +342,8 @@ void setup() {
   RUN_TEST(test_doubles_getValue);
   RUN_TEST(test_doubles_hasKey);
   RUN_TEST(test_doubles_pointer);
+  RUN_TEST(test_doubles_getValueOrDefault);
+  RUN_TEST(test_doubles_getValuePtrOrDefault);
   RUN_TEST(test_doubles_format);
   RUN_TEST(test_doubles_forceFormat);
 
@@ -330,6 +354,8 @@ void setup() {
   RUN_TEST(test_strings_getValue);
   RUN_TEST(test_strings_hasKey);
   RUN_TEST(test_strings_pointer);
+  RUN_TEST(test_strings_getValueOrDefault);
+  RUN_TEST(test_strings_getValuePtrOrDefault);
   RUN_TEST(test_strings_format);
   RUN_TEST(test_strings_forceFormat);
 
@@ -340,6 +366,8 @@ void setup() {
   RUN_TEST(test_bytestreams_getValue);
   RUN_TEST(test_bytestreams_hasKey);
   RUN_TEST(test_bytestreams_pointer);
+  RUN_TEST(test_bytestreams_getValueOrDefault);
+  RUN_TEST(test_bytestreams_getValuePtrOrDefault);
   RUN_TEST(test_bytestreams_format);
   RUN_TEST(test_bytestreams_forceFormat);
 
@@ -469,6 +497,44 @@ void test_bools_pointer() {
   TEST_ASSERT_FALSE(settings[ID_Bools]->getValuePtr(idx_nullptr, &value, sizeof(value)));
 }
 
+void test_bools_getValueOrDefault() {
+  bool out;
+
+  // Key exists in NVS (Bool_1 after setValue): should return the NVS value
+  bool result = bools.getValueOrDefault(Bools::Bool_1, out);
+  TEST_ASSERT_EQUAL(new_bool[0], result);
+  TEST_ASSERT_EQUAL(new_bool[0], out);
+
+  // Key not in NVS (Bool_3 was never written): should return the default value
+  result = bools.getValueOrDefault(Bools::Bool_3, out);
+  TEST_ASSERT_EQUAL(bools.getDefaultValue(Bools::Bool_3), result);
+  TEST_ASSERT_EQUAL(bools.getDefaultValue(Bools::Bool_3), out);
+}
+
+void test_bools_getValuePtrOrDefault() {
+  bool out;
+  const void* result;
+
+  // Key exists in NVS (index 0 = Bool_1): returns non-null pointer to the NVS value
+  result = settings[ID_Bools]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL(new_bool[0], *static_cast<const bool*>(result));
+  TEST_ASSERT_EQUAL(new_bool[0], out);
+
+  // Key not in NVS (index 2 = Bool_3): returns non-null pointer to the default value
+  result = settings[ID_Bools]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL(bools.getDefaultValue(Bools::Bool_3), *static_cast<const bool*>(result));
+  TEST_ASSERT_EQUAL(bools.getDefaultValue(Bools::Bool_3), out);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_Bools]->getValuePtrOrDefault(settings[ID_Bools]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_Bools]->getValuePtrOrDefault(0, &out, 0));
+}
+
 void test_bools_format() {
   TEST_ASSERT_EQUAL(0, bools.formatAll());
 
@@ -570,6 +636,45 @@ void test_uint32s_pointer() {
   // NVS key not saved yet - getValuePtr returns false and leaves value unmodified
   uint8_t idx_nullptr = idx_out - 1;
   TEST_ASSERT_FALSE(settings[ID_UInt32s]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+}
+
+void test_uint32s_getValueOrDefault() {
+  uint32_t out;
+
+  // Key exists in NVS (UInt32_1 = 11 after setValue): should return the NVS value
+  uint32_t result = uint32s.getValueOrDefault(UInt32s::UInt32_1, out);
+  TEST_ASSERT_EQUAL_UINT32(new_uint32[0], result);
+  TEST_ASSERT_EQUAL_UINT32(new_uint32[0], out);
+
+  // Key not in NVS (UInt32_3 was never written): should return the default value
+  result = uint32s.getValueOrDefault(UInt32s::UInt32_3, out);
+  TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(UInt32s::UInt32_3), result);
+  TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(UInt32s::UInt32_3), out);
+}
+
+void test_uint32s_getValuePtrOrDefault() {
+  uint32_t out;
+  const void* result;
+
+  // Key exists in NVS (index 0 = UInt32_1 = 11): returns non-null pointer to the NVS value
+  result = settings[ID_UInt32s]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_UINT32(new_uint32[0], *static_cast<const uint32_t*>(result));
+  TEST_ASSERT_EQUAL_UINT32(new_uint32[0], out);
+
+  // Key not in NVS (index 2 = UInt32_3): returns non-null pointer to the default value
+  result = settings[ID_UInt32s]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(UInt32s::UInt32_3),
+                           *static_cast<const uint32_t*>(result));
+  TEST_ASSERT_EQUAL_UINT32(uint32s.getDefaultValue(UInt32s::UInt32_3), out);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_UInt32s]->getValuePtrOrDefault(settings[ID_UInt32s]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_UInt32s]->getValuePtrOrDefault(0, &out, 0));
 }
 
 void test_uint32s_format() {
@@ -675,6 +780,45 @@ void test_int32s_pointer() {
   TEST_ASSERT_FALSE(settings[ID_Int32s]->getValuePtr(idx_nullptr, &value, sizeof(value)));
 }
 
+void test_int32s_getValueOrDefault() {
+  int32_t out;
+
+  // Key exists in NVS (Int32_1 after setValue): should return the NVS value
+  int32_t result = int32s.getValueOrDefault(Int32s::Int32_1, out);
+  TEST_ASSERT_EQUAL_INT32(new_int32[0], result);
+  TEST_ASSERT_EQUAL_INT32(new_int32[0], out);
+
+  // Key not in NVS (Int32_3 was never written): should return the default value
+  result = int32s.getValueOrDefault(Int32s::Int32_3, out);
+  TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(Int32s::Int32_3), result);
+  TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(Int32s::Int32_3), out);
+}
+
+void test_int32s_getValuePtrOrDefault() {
+  int32_t out;
+  const void* result;
+
+  // Key exists in NVS (index 0 = Int32_1): returns non-null pointer to the NVS value
+  result = settings[ID_Int32s]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_INT32(new_int32[0], *static_cast<const int32_t*>(result));
+  TEST_ASSERT_EQUAL_INT32(new_int32[0], out);
+
+  // Key not in NVS (index 2 = Int32_3): returns non-null pointer to the default value
+  result = settings[ID_Int32s]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(Int32s::Int32_3),
+                          *static_cast<const int32_t*>(result));
+  TEST_ASSERT_EQUAL_INT32(int32s.getDefaultValue(Int32s::Int32_3), out);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_Int32s]->getValuePtrOrDefault(settings[ID_Int32s]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_Int32s]->getValuePtrOrDefault(0, &out, 0));
+}
+
 void test_int32s_format() {
   TEST_ASSERT_EQUAL(0, int32s.formatAll());
 
@@ -778,6 +922,45 @@ void test_floats_pointer() {
   TEST_ASSERT_FALSE(settings[ID_Floats]->getValuePtr(idx_nullptr, &value, sizeof(value)));
 }
 
+void test_floats_getValueOrDefault() {
+  float out;
+
+  // Key exists in NVS (Float_1 after setValue): should return the NVS value
+  float result = floats.getValueOrDefault(Floats::Float_1, out);
+  TEST_ASSERT_EQUAL_FLOAT(new_float[0], result);
+  TEST_ASSERT_EQUAL_FLOAT(new_float[0], out);
+
+  // Key not in NVS (Float_3 was never written): should return the default value
+  result = floats.getValueOrDefault(Floats::Float_3, out);
+  TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(Floats::Float_3), result);
+  TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(Floats::Float_3), out);
+}
+
+void test_floats_getValuePtrOrDefault() {
+  float out;
+  const void* result;
+
+  // Key exists in NVS (index 0 = Float_1): returns non-null pointer to the NVS value
+  result = settings[ID_Floats]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_FLOAT(new_float[0], *static_cast<const float*>(result));
+  TEST_ASSERT_EQUAL_FLOAT(new_float[0], out);
+
+  // Key not in NVS (index 2 = Float_3): returns non-null pointer to the default value
+  result = settings[ID_Floats]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(Floats::Float_3),
+                          *static_cast<const float*>(result));
+  TEST_ASSERT_EQUAL_FLOAT(floats.getDefaultValue(Floats::Float_3), out);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_Floats]->getValuePtrOrDefault(settings[ID_Floats]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_Floats]->getValuePtrOrDefault(0, &out, 0));
+}
+
 void test_floats_format() {
   TEST_ASSERT_EQUAL(0, floats.formatAll());
 
@@ -879,6 +1062,45 @@ void test_doubles_pointer() {
   // NVS key not saved yet - getValuePtr returns false and leaves value unmodified
   uint8_t idx_nullptr = idx_out - 1;
   TEST_ASSERT_FALSE(settings[ID_Doubles]->getValuePtr(idx_nullptr, &value, sizeof(value)));
+}
+
+void test_doubles_getValueOrDefault() {
+  double out;
+
+  // Key exists in NVS (Double_1 after setValue): should return the NVS value
+  double result = doubles.getValueOrDefault(Doubles::Double_1, out);
+  TEST_ASSERT_EQUAL_DOUBLE(new_double[0], result);
+  TEST_ASSERT_EQUAL_DOUBLE(new_double[0], out);
+
+  // Key not in NVS (Double_3 was never written): should return the default value
+  result = doubles.getValueOrDefault(Doubles::Double_3, out);
+  TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(Doubles::Double_3), result);
+  TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(Doubles::Double_3), out);
+}
+
+void test_doubles_getValuePtrOrDefault() {
+  double out;
+  const void* result;
+
+  // Key exists in NVS (index 0 = Double_1): returns non-null pointer to the NVS value
+  result = settings[ID_Doubles]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_DOUBLE(new_double[0], *static_cast<const double*>(result));
+  TEST_ASSERT_EQUAL_DOUBLE(new_double[0], out);
+
+  // Key not in NVS (index 2 = Double_3): returns non-null pointer to the default value
+  result = settings[ID_Doubles]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(Doubles::Double_3),
+                           *static_cast<const double*>(result));
+  TEST_ASSERT_EQUAL_DOUBLE(doubles.getDefaultValue(Doubles::Double_3), out);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_Doubles]->getValuePtrOrDefault(settings[ID_Doubles]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_Doubles]->getValuePtrOrDefault(0, &out, 0));
 }
 
 void test_doubles_format() {
@@ -987,6 +1209,50 @@ void test_strings_pointer() {
   uint8_t idx_nullptr = idx_out - 1;
   NVS::Str def_out{buffer, sizeof(buffer)};
   TEST_ASSERT_FALSE(settings[ID_Strings]->getValuePtr(idx_nullptr, &def_out, sizeof(def_out)));
+}
+
+void test_strings_getValueOrDefault() {
+  char buf[32];
+  NVS::Str out{buf, sizeof(buf)};
+
+  // Key exists in NVS (String_1 after setValue): should return the NVS value
+  NVS::Str result = strings.getValueOrDefault(Strings::String_1, out);
+  TEST_ASSERT_EQUAL_STRING(new_string[0], result.data);
+  TEST_ASSERT_EQUAL_STRING(new_string[0], out.data);
+
+  // Key not in NVS (String_3 was never written): should return the default value
+  out    = {buf, sizeof(buf)};
+  result = strings.getValueOrDefault(Strings::String_3, out);
+  TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(Strings::String_3).data, result.data);
+  TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(Strings::String_3).data, out.data);
+}
+
+void test_strings_getValuePtrOrDefault() {
+  char buf[32];
+  NVS::Str out{buf, sizeof(buf)};
+  const void* result;
+
+  // Key exists in NVS (index 0 = String_1): returns non-null pointer to the NVS value
+  result = settings[ID_Strings]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_STRING(new_string[0], static_cast<const NVS::Str*>(result)->data);
+  TEST_ASSERT_EQUAL_STRING(new_string[0], out.data);
+
+  // Key not in NVS (index 2 = String_3): returns non-null pointer to the default value
+  out    = {buf, sizeof(buf)};
+  result = settings[ID_Strings]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(Strings::String_3).data,
+                           static_cast<const NVS::Str*>(result)->data);
+  TEST_ASSERT_EQUAL_STRING(strings.getDefaultValue(Strings::String_3).data, out.data);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(
+    settings[ID_Strings]->getValuePtrOrDefault(settings[ID_Strings]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small (size field = 0): returns nullptr
+  NVS::Str tiny{buf, 0};
+  TEST_ASSERT_NULL(settings[ID_Strings]->getValuePtrOrDefault(0, &tiny, 0));
 }
 
 void test_strings_format() {
@@ -1123,6 +1389,61 @@ void test_bytestreams_pointer() {
   uint8_t idx_nullptr = idx_out - 1;
   NVS::ByteStream def_out{blob_buf, sizeof(blob_buf)};
   TEST_ASSERT_FALSE(settings[ID_ByteStreams]->getValuePtr(idx_nullptr, &def_out, sizeof(def_out)));
+}
+
+void test_bytestreams_getValueOrDefault() {
+  uint8_t buf[32];
+  NVS::ByteStream out{buf, sizeof(buf)};
+
+  // Key exists in NVS (Stream_1 after setValue): should return the NVS value
+  NVS::ByteStream result = bytestreams.getValueOrDefault(ByteStreams::Stream_1, out);
+  TEST_ASSERT_EQUAL_UINT32(new_bytestream[0].size, result.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[0].data, result.data, result.size);
+  TEST_ASSERT_EQUAL_UINT32(new_bytestream[0].size, out.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[0].data, out.data, out.size);
+
+  // Key not in NVS (Stream_3 was never written): should return the default value
+  out                      = {buf, sizeof(buf)};
+  result                   = bytestreams.getValueOrDefault(ByteStreams::Stream_3, out);
+  NVS::ByteStreamView def3 = bytestreams.getDefaultValue(ByteStreams::Stream_3);
+  TEST_ASSERT_EQUAL_UINT32(def3.size, result.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(def3.data, result.data, result.size);
+  TEST_ASSERT_EQUAL_UINT32(def3.size, out.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(def3.data, out.data, out.size);
+}
+
+void test_bytestreams_getValuePtrOrDefault() {
+  uint8_t buf[32];
+  NVS::ByteStream out{buf, sizeof(buf)};
+  const void* result;
+
+  // Key exists in NVS (index 0 = Stream_1): returns non-null pointer to the NVS value
+  result = settings[ID_ByteStreams]->getValuePtrOrDefault(0, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  TEST_ASSERT_EQUAL_UINT32(new_bytestream[0].size,
+                           static_cast<const NVS::ByteStream*>(result)->size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(new_bytestream[0].data,
+                               static_cast<const NVS::ByteStream*>(result)->data,
+                               new_bytestream[0].size);
+
+  // Key not in NVS (index 2 = Stream_3): returns non-null pointer to the default value
+  out    = {buf, sizeof(buf)};
+  result = settings[ID_ByteStreams]->getValuePtrOrDefault(2, &out, sizeof(out));
+  TEST_ASSERT_NOT_NULL(result);
+  NVS::ByteStreamView def3 = bytestreams.getDefaultValue(ByteStreams::Stream_3);
+  TEST_ASSERT_EQUAL_UINT32(def3.size, static_cast<const NVS::ByteStream*>(result)->size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(
+    def3.data, static_cast<const NVS::ByteStream*>(result)->data, def3.size);
+  TEST_ASSERT_EQUAL_UINT32(def3.size, out.size);
+  TEST_ASSERT_EQUAL_HEX8_ARRAY(def3.data, out.data, out.size);
+
+  // Index out of bounds: returns nullptr
+  TEST_ASSERT_NULL(settings[ID_ByteStreams]->getValuePtrOrDefault(
+    settings[ID_ByteStreams]->getSize(), &out, sizeof(out)));
+
+  // Buffer too small (max_size = 0): returns nullptr
+  NVS::ByteStream tiny{buf, 0};
+  TEST_ASSERT_NULL(settings[ID_ByteStreams]->getValuePtrOrDefault(0, &tiny, 0));
 }
 
 void test_bytestreams_format() {
