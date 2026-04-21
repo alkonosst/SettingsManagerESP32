@@ -102,6 +102,7 @@ bool deinit(const char* partition_name = nullptr);
  * calling this, you must call `init()` again before using any Settings objects.
  * @param partition_name Optional custom partition name. If `nullptr`, the default partition is
  * used.
+ * @note You need to call `end()` on all open Settings objects before erasing the partition.
  * @return Erased successfully, false otherwise.
  */
 bool erase(const char* partition_name = nullptr);

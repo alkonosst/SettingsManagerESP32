@@ -46,6 +46,7 @@
   - [Setting types](#setting-types)
   - [Utility functions](#utility-functions)
   - [Important notes](#important-notes)
+    - [Closing handles before erasing the partition](#closing-handles-before-erasing-the-partition)
     - [String and ByteStream types](#string-and-bytestream-types)
     - [Migration from v3 to v4](#migration-from-v3-to-v4)
 - [License](#license)
@@ -126,6 +127,11 @@ NVS::erase();  // Erase all data in the partition (requires init() again afterwa
 ```
 
 All three accept an optional `const char* partition_name` to target a custom partition.
+
+> [!IMPORTANT]
+> Call `end()` on every open `Settings` object **before** calling `NVS::erase()`. Erasing the
+> partition implicitly deinitializes it; any handle that is still open will be left in an invalid
+> state and subsequent reads/writes will fail silently.
 
 ## Constructors and initialization
 
@@ -252,6 +258,11 @@ settings.setValue(MyEnum::Key, value);
 MyType val;
 bool found = settings.getValue(MyEnum::Key, val);
 
+// Read with automatic fallback to the default value
+// Returns the NVS value if the key exists, or the default value if not saved or on error.
+// In both cases `val` is updated to match the returned value.
+MyType result = settings.getValueOrDefault(MyEnum::Key, val);
+
 // Get default value
 auto def = settings.getDefaultValue(MyEnum::Key);
 
@@ -263,7 +274,7 @@ const char* hint = settings.getHint(MyEnum::Key);
 > [!NOTE]
 > `getValue()` returns `false` when the key has not been saved to NVS yet. In that case, `val` is
 > left **unchanged** - no default value is written to it. Check the return value and fall back to
-> `getDefaultValue()` if needed.
+> `getDefaultValue()` if needed, or use `getValueOrDefault()` to get the fallback automatically.
 
 ### Formatting
 
@@ -318,6 +329,13 @@ NVS::Type type  = all[0]->getType();
 // Read/write via void*
 float f;
 all[0]->getValuePtr(0, &f, sizeof(f));
+
+// Read with fallback via void* - returns a non-null pointer to the result (NVS or default)
+// The result is always written into the provided buffer; cast the returned pointer to use it.
+const void* result = all[0]->getValuePtrOrDefault(0, &f, sizeof(f));
+if (result) {
+  float val = *static_cast<const float*>(result);
+}
 
 float new_val = 1.23f;
 all[0]->setValuePtr(0, &new_val);
@@ -387,6 +405,16 @@ SETTINGS_CREATE_BYTE_STREAMS(ByteStreams, "esp32", BYTESTREAMS)
 All utility functions are in the `NVS` namespace.
 
 ```cpp
+// Get NVS storage statistics for the default (or a custom) partition
+nvs_stats_t stats;
+if (NVS::getStats(stats)) {
+  Serial.printf("Used entries     : %u\n", stats.used_entries);
+  Serial.printf("Free entries     : %u\n", stats.free_entries);
+  Serial.printf("Available entries: %u\n", stats.available_entries);
+  Serial.printf("Total entries    : %u\n", stats.total_entries);
+  Serial.printf("Namespaces       : %u\n", stats.namespace_count);
+}
+
 // Convert a Type enum to a string ("Bool", "Float", "String", etc.)
 const char* NVS::typeToStr(NVS::Type t);
 
@@ -394,8 +422,8 @@ const char* NVS::typeToStr(NVS::Type t);
 const char* NVS::formatToStr(NVS::ByteStream::Format f);
 
 // Calculate the buffer size needed to hold the hex string for byte_count bytes
-// Without spaces: "DEADBEEF\0"  → hexStrSize(4)       = 9
-// With spaces:    "DE AD BE EF\0" → hexStrSize(4, true) = 12
+// Without spaces: "DEADBEEF\0"    -> hexStrSize(4)       = 9
+// With spaces:    "DE AD BE EF\0" -> hexStrSize(4, true) = 12
 constexpr size_t NVS::hexStrSize(size_t byte_count, bool with_spaces = false);
 
 // Encode a ByteStreamView to a hex string
@@ -425,6 +453,26 @@ NVS::fromStrToHex("CA FE BA BE", decoded, true);
 ```
 
 ## Important notes
+
+### Closing handles before erasing the partition
+
+`NVS::erase()` erases the entire partition and **implicitly deinitializes it**. Any`Settings` handle that is still open at that point is left dangling: subsequent reads and writes on it will fail or produce undefined behaviour.
+
+The correct sequence is:
+
+```cpp
+// 1. Close all open handles
+st_Floats.end();
+st_UInt32s.end();
+
+// 2. Erase
+NVS::erase();
+
+// 3. Re-initialize and re-open
+NVS::init();
+st_Floats.begin();
+st_UInt32s.begin();
+```
 
 ### String and ByteStream types
 
