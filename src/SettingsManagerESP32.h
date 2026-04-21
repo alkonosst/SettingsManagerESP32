@@ -109,6 +109,16 @@ bool erase(const char* partition_name = nullptr);
 /* ------------------------------------------ Utilities ----------------------------------------- */
 
 /**
+ * @brief Get NVS storage statistics for the default or a custom partition.
+ * @param stats Output parameter for the stats struct.
+ * @param partition_name Optional custom partition name. If `nullptr`, the default partition is
+ * used.
+ * @retval `true` Stats retrieved successfully.
+ * @retval `false` Operation failed (e.g. not initialized).
+ */
+bool getStats(nvs_stats_t& stats, const char* partition_name = nullptr);
+
+/**
  * @brief Convert a `NVS::Type` enum value to a string representation.
  * @param t `NVS::Type` value.
  * @return A string representation of the type.

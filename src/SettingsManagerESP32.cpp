@@ -63,6 +63,14 @@ bool erase(const char* partition_name) {
   return success;
 }
 
+bool getStats(nvs_stats_t& stats, const char* partition_name) {
+  if (partition_name) {
+    return (nvs_get_stats(partition_name, &stats) == ESP_OK);
+  } else {
+    return (nvs_get_stats(nullptr, &stats) == ESP_OK);
+  }
+}
+
 const char* typeToStr(const NVS::Type t) {
   switch (t) {
     case NVS::Type::Bool: return "Bool";
