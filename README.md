@@ -518,10 +518,14 @@ const uint8_t new_data[]             = {0xCA, 0xFE, 0xBA, 0xBE};
 const NVS::ByteStreamView new_value  = {new_data, sizeof(new_data), NVS::ByteStream::Format::Hex};
 bytestreams.setValue(ByteStreams::BS1, new_value);
 
-// Or use the implicit conversion from ByteStream to ByteStreamView
+// Implicit conversion from ByteStream to ByteStreamView is supported, but only makes sense
+// after a getValue() call, because the library sets 'size' to the number of bytes read.
+// If you construct a ByteStream manually, 'size' starts at 0 and the conversion will write
+// a zero-length blob. Always set 'size' explicitly before relying on the conversion:
 NVS::ByteStream writable{buf, sizeof(buf)};
-// ... fill buf ...
-bytestreams.setValue(ByteStreams::BS1, writable); // implicit conversion
+// ... fill buf with your data ...
+writable.size = actual_data_length; // REQUIRED: 'size' is what gets written, not 'max_size'
+bytestreams.setValue(ByteStreams::BS1, writable); // implicit conversion to ByteStreamView
 ```
 
 > [!NOTE]
